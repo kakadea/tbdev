@@ -25,8 +25,11 @@ loggedinorreturn();
 
 	$lang = load_language('global');
 	
-	if ( get_user_class() < UC_ADMINISTRATOR )
-		header( "Location: {$TBDEV['baseurl']}/index.php" );
+		if ( get_user_class() < UC_ADMINISTRATOR )
+		{
+			header( "Location: {$TBDEV['baseurl']}/index.php", true, 403 );
+			exit;
+		}
 
 		
 $rep_set_cache = "cache/rep_settings_cache.php";
