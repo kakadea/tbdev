@@ -173,14 +173,35 @@ function isproxy()
     if ($modernpasshash === false)
       stderr($lang['takesignup_user_error'], $lang['takesignup_fatal_error']);
     $editsecret = (!$arr[0] ? "" : make_passhash_login_key());
+    $signup_ip = getip();
+    if (!is_string($signup_ip) || filter_var($signup_ip, FILTER_VALIDATE_IP) === false || strlen($signup_ip) > 15)
+      $signup_ip = '0.0.0.0';
 
-    $ret = mysql_query("INSERT INTO users (username, passhash, password_hash, secret, editsecret, email, status, " . (!$arr[0] ? "class, " : "") . "added, time_offset, dst_in_use) VALUES (" .
-        implode(",", array_map("sqlesc", array($wantusername, $wantpasshash, $modernpasshash, $secret, $editsecret, $email, (!$arr[0] ? 'confirmed' : 'pending')))) .
-        ", " . (!$arr[0] ? UC_SYSOP . ", " : "") . "" . TIME_NOW . " , $time_offset_sql, {$dst_in_use['tm_isdst']})");
-
-    if (!$ret) 
+    // The legacy schema has several NOT NULL columns without defaults.
+    // Fill them explicitly so strict MariaDB mode cannot reject a valid signup.
+    $signup_columns = array(
+      'username', 'passhash', 'password_hash', 'secret', 'editsecret', 'email', 'status',
+      'last_login', 'last_access', 'ip', 'avatar', 'title', 'notifs', 'modcomment'
+    );
+    $signup_values = array(
+      $wantusername, $wantpasshash, $modernpasshash, $secret, $editsecret, $email,
+      (!$arr[0] ? 'confirmed' : 'pending'), 0, TIME_NOW, $signup_ip, '', '', '', ''
+    );
+    if (!$arr[0])
     {
-      if (mysql_errno() == 1062)
+      $signup_columns[] = 'class';
+      $signup_values[] = (int) UC_SYSOP;
+    }
+    $signup_columns = array_merge($signup_columns, array('added', 'time_offset', 'dst_in_use'));
+    $signup_values = array_merge($signup_values, array(TIME_NOW, (string) $time_offset, (int) $dst_in_use['tm_isdst']));
+    $ret = mysql_query("INSERT INTO users (" . implode(', ', $signup_columns) . ") VALUES (" .
+      implode(',', array_map('sqlesc', $signup_values)) . ")");
+
+    if (!$ret)
+    {
+      $signup_db_errno = mysql_errno();
+      error_log('TBDev signup insert failed [' . $signup_db_errno . ']: ' . mysql_error());
+      if ($signup_db_errno == 1062)
         stderr($lang['takesignup_user_error'], $lang['takesignup_user_exists']);
       stderr($lang['takesignup_user_error'], $lang['takesignup_fatal_error']);
     }

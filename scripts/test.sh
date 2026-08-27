@@ -26,6 +26,7 @@ php tests/bencode_test.php
 php tests/captcha_test.php
 php tests/cache_test.php
 php tests/theme_assets_test.php
+php tests/signup_schema_test.php
 git diff --check
 
 echo "Static and security checks passed."
