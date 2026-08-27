@@ -151,23 +151,33 @@ function autoclean() {
 
     $sql = @mysql_query( "SELECT * FROM cleanup WHERE clean_on = 1 AND clean_time <= {$now} ORDER BY clean_time ASC LIMIT 0,1" );
     
-    $row = mysql_fetch_assoc( $sql );
-    
-    if ( $row['clean_id'] )
-		{
-			$next_clean = intval( $now + ($row['clean_increment'] ? $row['clean_increment'] : 15*60) );
-			
-			@mysql_query( "UPDATE cleanup SET clean_time = $next_clean WHERE clean_id = {$row['clean_id']}" );
-			
-			if ( file_exists( ROOT_PATH.'/include/cleanup/'.$row['clean_file'] ) )
-			{
-				require_once( ROOT_PATH.'/include/cleanup/'.$row['clean_file'] );
-			
-        register_shutdown_function( 'docleanup', $row );
-			}
-		
-      
-		}
+    if ($sql === false) {
+        return;
+    }
+
+    $row = mysql_fetch_assoc($sql);
+    if (!is_array($row) || empty($row['clean_id'])) {
+        return;
+    }
+
+    $clean_id = (int) $row['clean_id'];
+    $increment = isset($row['clean_increment']) && is_numeric($row['clean_increment'])
+        ? (int) $row['clean_increment']
+        : 0;
+    $next_clean = (int) ($now + ($increment > 0 ? $increment : 15 * 60));
+    @mysql_query("UPDATE cleanup SET clean_time = {$next_clean} WHERE clean_id = {$clean_id}");
+
+    $clean_file = isset($row['clean_file']) && is_scalar($row['clean_file'])
+        ? (string) $row['clean_file']
+        : '';
+    $cleanup_dir = realpath(ROOT_PATH . '/include/cleanup');
+    $cleanup_path = $cleanup_dir === false ? false : realpath($cleanup_dir . '/' . $clean_file);
+    if ($cleanup_dir === false || $cleanup_path === false || dirname($cleanup_path) !== $cleanup_dir) {
+        return;
+    }
+
+    require_once $cleanup_path;
+    register_shutdown_function('docleanup', $row);
     
         //docleanup();
 }
