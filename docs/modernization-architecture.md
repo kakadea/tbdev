@@ -102,3 +102,7 @@ No production cutover is allowed merely because the image builds. A build-succes
 [2](https://github.com/Hyp3rionM4x/TBDev) — historical fork with 2019 fixes.
 [3](https://www.php.net/manual/en/migration70.incompatible.php) — PHP migration guide confirming removal of `ext/mysql`.
 [4](https://docs.docker.com/build/building/best-practices/) — Docker build and image pinning practices.
+
+## Baseline de migração do banco
+
+A análise da branch de modernização encontrou 511 chamadas a `mysql_query`, 190 a `mysql_fetch_assoc`, 104 a `mysql_num_rows`, 55 a `mysql_affected_rows`, 44 a `mysql_fetch_row`, 25 referências a configurações `mysql_*`, 19 a `mysql_error`, 13 a `mysql_select_db`, 10 a `mysql_connect`, 8 a `mysql_errno`, 7 a `mysql_real_escape_string`, 6 a `mysql_insert_id` e 4 a `mysql_set_charset`. A API aparece em front-end, administração, tracker, manutenção e instalador. Por isso a migração para PDO/MySQLi precisa ser fatiada: primeiro um bootstrap/adapter testado, depois módulos por domínio, com testes de contrato para o announce/scrape e sem uma troca global cega.
