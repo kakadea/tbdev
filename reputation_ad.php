@@ -32,7 +32,15 @@ loggedinorreturn();
 		}
 
 	$input = array_merge($_GET, $_POST);
-	$input['mode'] = isset( $input['mode'] ) ? $input['mode'] : '';
+	$input['mode'] = isset($input['mode']) && is_string($input['mode']) ? $input['mode'] : '';
+	$rep_admin_csrf = security_csrf_token('reputation-admin');
+	$mutating_modes = array('doadd', 'doedit', 'doupdate', 'dodelete', 'doeditrep', 'dodelrep');
+	if (in_array($input['mode'], $mutating_modes, true)
+		&& ($_SERVER['REQUEST_METHOD'] !== 'POST' || !security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'reputation-admin')))
+	{
+		http_response_code(400);
+		exit('Invalid reputation administration request.');
+	}
 	$now_date     = "";
 	$reputationid = 0;
 	$time_offset = 0;
@@ -89,8 +97,9 @@ loggedinorreturn();
 	
 
 
-function show_level()
+	function show_level()
 	{
+		global $rep_admin_csrf;
 		$title = "User Reputation Manager - Overview";
 
     	$html = "<p>On this page you can modify the minimum amount required for each reputation level. Make sure you press Update Minimum Levels to save your changes. You cannot set the same minimum amount to more than one level.<br />From here you can also choose to edit or remove any single level. Click the Edit link to modify the Level description (see Editing a Reputation Level) or click Remove to delete a level. If you remove a level or modify the minimum reputation needed to be at a level, all users will be updated to reflect their new level if necessary.</p><br />";
@@ -108,7 +117,8 @@ function show_level()
                          <div class='cblock-header'>User Reputation Manager <span class='btn' style='float:right;'><a href='reputation_ad.php?mode=list'>View comments</a></span></div>
                          <div class='cblock-content'>";
 		$html .= "           <form action='reputation_ad.php' name='show_rep_form' method='post'>
-				                  <input name='mode' value='doupdate' type='hidden' />";
+					                  <input name='csrf_token' value='" . htmlsafechars($rep_admin_csrf) . "' type='hidden' />
+					                  <input name='mode' value='doupdate' type='hidden' />";
 		$html .= "                      <table cellpadding='3px'>
                                               <tr>
 		                                         <td style='font-weight: bold; color: #ffffff; background-color: #0055A4; padding: 5px; width:5%;'>ID</td>
@@ -125,7 +135,7 @@ function show_level()
 				                                 <td>#".$res['reputationlevelid']."</td>
 					                             <td>User <b>".htmlsafechars( $res['level'] )."</b></td>
 					                             <td class='center'><input type='text' name='reputation[".$res['reputationlevelid']."]' value='".$res['minimumreputation']."' size='12' /></td>
-					                             <td class='center'><span class='btn'><a href='reputation_ad.php?mode=edit&amp;reputationlevelid=".$res['reputationlevelid']."'>Edit</a></span>&nbsp;<span class='btn'><a href='reputation_ad.php?mode=dodelete&amp;reputationlevelid=".$res['reputationlevelid']."'>Delete</a></span></td>
+					                             <td class='center'><span class='btn'><a href='reputation_ad.php?mode=edit&amp;reputationlevelid=".$res['reputationlevelid']."'>Edit</a></span>&nbsp;<span class='btn'><form method='post' action='reputation_ad.php' style='display:inline;'><input type='hidden' name='csrf_token' value='" . htmlsafechars($rep_admin_csrf) . "' /><input type='hidden' name='mode' value='dodelete' /><input type='hidden' name='reputationlevelid' value='" . (int) $res['reputationlevelid'] . "' /><button type='submit' class='btn'>Delete</button></form></span></td>
 				                              </tr>\n";
 		}
 
@@ -148,9 +158,9 @@ function show_level()
 
 function show_form($type='edit')
 	{
-		global $input;
+			global $input, $rep_admin_csrf;
 
-		$html = "";
+			$html = "";
 
         $html .= "
                      <div class='cblock'>
@@ -190,8 +200,9 @@ function show_form($type='edit')
 		$replevid = isset($res['reputationlevelid']) ? $res['reputationlevelid'] : '';
 		$replevel = isset($res['level']) ? htmlsafechars($res['level']) : '';
 		$minrep = isset($res['minimumreputation']) ? $res['minimumreputation'] : '';
-		$html .= "<form action='reputation_ad.php' id='show_rep_form' method='post'>
-				<input name='reputationlevelid' value='{$replevid}' type='hidden' />
+			$html .= "<form action='reputation_ad.php' id='show_rep_form' method='post'>
+					<input name='csrf_token' value='" . htmlsafechars($rep_admin_csrf) . "' type='hidden' />
+					<input name='reputationlevelid' value='{$replevid}' type='hidden' />
 				<input name='mode' value='{$mode}' type='hidden' />";
 
 		$html .= "<h2>$title</h2><table width='500px' cellpadding='5px'><tr>
@@ -327,9 +338,9 @@ function do_delete()
 
 function show_form_rep()
 	{
-		global $input;
-		
-		if( ! isset($input['reputationid']) || ! is_valid_id($input['reputationid']) )
+					global $input, $rep_admin_csrf;
+
+			if( ! isset($input['reputationid']) || ! is_valid_id($input['reputationid']) )
 			stderr( '', 'Nothing here by that ID.' );
 		
 		$title = 'User Reputation Manager';
@@ -349,8 +360,9 @@ function show_form_rep()
 			stderr( '', 'Erm, it\'s not there!' );
 		}
 		
-		$html = "<form action='reputation_ad.php' name='show_rep_form' method='post'>
-				<input name='reputationid' value='{$res['reputationid']}' type='hidden' />
+			$html = "<form action='reputation_ad.php' name='show_rep_form' method='post'>
+					<input name='csrf_token' value='" . htmlsafechars($rep_admin_csrf) . "' type='hidden' />
+					<input name='reputationid' value='{$res['reputationid']}' type='hidden' />
 				<input name='oldreputation' value='{$res['reputation']}' type='hidden' />
 				<input name='mode' value='doeditrep' type='hidden' />";
 		
@@ -377,9 +389,9 @@ function show_form_rep()
 
 function view_list()
 	{
-		global $now_date, $time_offset, $input;
-		
-		$title = 'User Reputation Manager';
+					global $now_date, $time_offset, $input, $rep_admin_csrf;
+
+			$title = 'User Reputation Manager';
 
 
         $html = '';
@@ -391,8 +403,9 @@ function view_list()
 
 		$html .= "           <p>This page allows you to search for reputation comments left by / for specific users over the specified date range.</p>";
 
-		$html .= "           <form action='reputation_ad.php' id='list_form' method='post'>
-		                          <input name='mode' value='list' type='hidden' />
+			$html .= "           <form action='reputation_ad.php' id='list_form' method='post'>
+			                          <input name='csrf_token' value='" . htmlsafechars($rep_admin_csrf) . "' type='hidden' />
+			                          <input name='mode' value='list' type='hidden' />
 				                  <input name='dolist' value='1' type='hidden' />";
 		$html .= "                <table style='width:500px;' cellpadding='5'>";
 		$html .= "                      <tr><td style='width:20%;'>Left For</td><td style='width:80%;'><input type='text' name='leftfor' value='' size='35' maxlength='250' tabindex='1' /></td></tr>";
