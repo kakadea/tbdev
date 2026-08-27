@@ -1,0 +1,61 @@
+services:
+  tbdev-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PHP_IMAGE: php:8.2-apache-bookworm
+    image: tbdev-web:0.1.0-compat
+    container_name: tbdev-web-lab
+    restart: unless-stopped
+    env_file:
+      - .env.lab
+    depends_on:
+      tbdev-db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:18180:80"
+    volumes:
+      - tbdev_torrents:/var/lib/tbdev/torrents
+      - tbdev_uploads:/var/lib/tbdev/uploads
+      - tbdev_logs:/var/log/tbdev
+    mem_limit: 384m
+    cpus: "0.50"
+    pids_limit: 192
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  tbdev-db:
+    image: mariadb:10.11
+    container_name: tbdev-db-lab
+    restart: unless-stopped
+    env_file:
+      - .env.lab
+    volumes:
+      - tbdev_db:/var/lib/mysql
+    mem_limit: 512m
+    cpus: "0.50"
+    pids_limit: 256
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -u root -p\"$${MARIADB_ROOT_PASSWORD}\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  tbdev_db:
+  tbdev_torrents:
+  tbdev_uploads:
+  tbdev_logs:
