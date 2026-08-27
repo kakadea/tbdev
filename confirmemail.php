@@ -21,22 +21,19 @@ require_once "include/user_functions.php";
 
     $lang = array_merge( load_language('global'), load_language('confirmemail') );
     
-    if ( !isset($_GET['uid']) OR !isset($_GET['key']) OR !isset($_GET['email']) )
-      stderr("{$lang['confirmmail_user_error']}", "{$lang['confirmmail_idiot']}");
+    if (!isset($_GET['uid'], $_GET['key'], $_GET['email']))
+      stderr($lang['confirmmail_user_error'], $lang['confirmmail_idiot']);
 
-    if (! preg_match( "/^(?:[\d\w]){32}$/", $_GET['key'] ) )
+    if (!is_string($_GET['uid']) || !preg_match('/\A\d{1,10}\z/D', $_GET['uid']))
+      stderr($lang['confirmmail_user_error'], $lang['confirmmail_no_id']);
+    if (!is_string($_GET['key']) || !preg_match('/\A[A-Za-z0-9]{32}\z/D', $_GET['key']))
 		{
 			stderr( "{$lang['confirmmail_user_error']}", "{$lang['confirmmail_no_key']}" );
 		}
 		
-		if (! preg_match( "/^(?:\d){1,}$/", $_GET['uid'] ) )
-		{
-			stderr( "{$lang['confirmmail_user-error']}", "{$lang['confirmmail_no_id']}" );
-		}
-
-    $id = intval($_GET['uid']);
-    $md5 = $_GET['key'];
-    $email = urldecode($_GET['email']);
+    $id = (int) $_GET['uid'];
+    $key = (string) $_GET['key'];
+    $email = is_string($_GET['email']) ? urldecode($_GET['email']) : '';
     
     if( !validemail($email) )
       stderr("{$lang['confirmmail_user_error']}", "{$lang['confirmmail_false_email']}");
@@ -44,8 +41,17 @@ require_once "include/user_functions.php";
 dbconn();
 loggedinorreturn();
 
-    $res = mysql_query("SELECT editsecret FROM users WHERE id = $id");
-    $row = mysql_fetch_assoc($res);
+    $account_stmt = tbdev_db_prepare_execute(
+      'SELECT editsecret FROM users WHERE id = ? LIMIT 1',
+      'i',
+      array($id)
+    );
+    $res = $account_stmt ? mysqli_stmt_get_result($account_stmt) : false;
+    $row = $res ? mysqli_fetch_assoc($res) : false;
+    if ($res)
+      mysqli_free_result($res);
+    if ($account_stmt)
+      mysqli_stmt_close($account_stmt);
 
     if (!$row)
       stderr("{$lang['confirmmail_user_error']}", "{$lang['confirmmail_not_complete']}");
@@ -55,10 +61,17 @@ loggedinorreturn();
     if (preg_match('/^ *$/s', $sec))
       stderr("{$lang['confirmmail_user_error']}", "{$lang['confirmmail_not_complete']}");
       
-    if ($md5 != md5($sec . $email . $sec))
-      stderr("{$lang['confirmmail_user_error']}", "{$lang['confirmmail_not_complete']}");
+    if (!hash_equals(md5($sec . $email . $sec), $key))
+      stderr($lang['confirmmail_user_error'], $lang['confirmmail_not_complete']);
 
-   @mysql_query("UPDATE users SET editsecret='', email=" . sqlesc($email) . " WHERE id=$id AND editsecret=" . sqlesc($row["editsecret"]));
+    $confirm_stmt = tbdev_db_prepare_execute(
+      "UPDATE users SET editsecret='', email=? WHERE id=? AND editsecret=?",
+      'sis',
+      array($email, $id, (string) $row['editsecret'])
+    );
+    if (!$confirm_stmt)
+      stderr($lang['confirmmail_user_error'], $lang['confirmmail_not_complete']);
+    mysqli_stmt_close($confirm_stmt);
 
     if (!mysql_affected_rows())
       stderr("{$lang['confirmmail_user_error']}", "{$lang['confirmmail_not_complete']}");
