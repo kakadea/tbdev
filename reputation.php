@@ -18,7 +18,9 @@
 */
 require_once("include/bittorrent.php");
 require_once "include/user_functions.php";
- 
+
+security_session_start();
+$csrf = security_csrf_token('reputation');
 dbconn(false);
 
 
@@ -193,14 +195,20 @@ $GVARS['g_rep_use'] = ($CURUSER['class'] > UC_USER);
 ///////////////////////////////////////////////
 //	Are we adding a rep or what?
 ///////////////////////////////////////////////
-		if( isset( $input['do'] ) && $input['do']  == 'addrep' )
-		{
-			if( $res['userid'] == $CURUSER['id'] ) // sneaky bastiges!
+			if (isset($input['do']) && $input['do'] === 'addrep')
+			{
+				if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'reputation'))
+					rep_output($lang['info_incorrect_access']);
+				if (!isset($_POST['reputation']) || !in_array($_POST['reputation'], array('pos', 'neg'), true))
+					rep_output($lang['info_incorrect_access']);
+				if ($_POST['reputation'] === 'neg' && !$is_mod && !$GVARS['g_rep_negative'])
+					rep_output($lang['info_incorrect_access']);
+				if ($res['userid'] == $CURUSER['id']) // sneaky bastiges!
 			{
 				rep_output($lang["info_cannot_rate_own"]);
 			}
 
-			$score = fetch_reppower( $CURUSER, $input['reputation'] );
+				$score = fetch_reppower($CURUSER, $_POST['reputation']);
 			$res['reputation'] += $score;
 
 			@mysql_query( "UPDATE users set reputation=".intval($res['reputation']). " WHERE id=" .$res['userid'] );
@@ -240,7 +248,9 @@ $GVARS['g_rep_use'] = ($CURUSER['class'] > UC_USER);
 					{
 						$total += $postrep['reputation'];
 
-						if( $postrep['reputation'] > 0 )
+							$postrep_reason = htmlsafechars($postrep['reason']);
+							$postrep_name = htmlsafechars($postrep['leftby_name']);
+							if( $postrep['reputation'] > 0 )
 						{
 							$posneg = 'pos';
 						}
@@ -255,13 +265,13 @@ $GVARS['g_rep_use'] = ($CURUSER['class'] > UC_USER);
 
 						if( $GVARS['g_rep_seeown'] )
 						{
-							$postrep['reason'] = $postrep['reason']." <span class='desc'>{$lang["rep_let_by"]} <a href=\"{$TBDEV['baseurl']}/userdetails.php?id={$postrep['leftby_id']}\" target='_blank'>{$postrep['leftby_name']}</a></span>";
+								$postrep_reason .= " <span class='desc'>" . htmlsafechars($lang['rep_let_by']) . " <a href=\"{$TBDEV['baseurl']}/userdetails.php?id=" . (int) $postrep['leftby_id'] . "\" target='_blank'>" . $postrep_name . "</a></span>";
 						}
 
-						$reasonbits .= "<tr>
-	<td class='row2' width='1%'><img src='./pic/rep/reputation_$posneg.gif' border='0' alt='' /></td>
-	<td class='row2'>{$postrep['reason']}</td>
-</tr>";
+							$reasonbits .= "<tr>
+		<td class='row2' width='1%'><img src='./pic/rep/reputation_$posneg.gif' border='0' alt='' /></td>
+		<td class='row2'>{$postrep_reason}</td>
+	</tr>";
 					}
 ///////////////////////////////////////////////
 //	The negativity...oh such negativity
@@ -316,11 +326,11 @@ $GVARS['g_rep_use'] = ($CURUSER['class'] > UC_USER);
 				//	HTML/CSS for 'add reputaion'
 				//	Feel free to alter HTML/CSS here
 				///////////////////////////////////////////////
-				$rep_text = sprintf("What do you think of %s&#39;s post?", $res['username']);
+					$rep_text = sprintf("What do you think of %s&#39;s post?", htmlsafechars($res['username']));
 				$negativerep = ( $is_mod || $GVARS['g_rep_negative'] ) ? TRUE : FALSE;
 				$closewindow = FALSE;
 
-				$html = "<tr><td class='darkrow1'>{$lang["info_add_rep"]} <b>{$res['username']}</b></td></tr>
+					$html = "<tr><td class='darkrow1'>{$lang["info_add_rep"]} <b>" . htmlsafechars($res['username']) . "</b></td></tr>
 						<tr>
 							<td class='row2'>
 							<form action='reputation.php' method='post'>	
@@ -350,7 +360,8 @@ $GVARS['g_rep_use'] = ($CURUSER['class'] > UC_USER);
 					<div align='center' style='margin-top:3px;'>
 						<input type='hidden' name='act' value='reputation' />
 						<input type='hidden' name='do' value='addrep' />
-						<input type='hidden' name='pid' value='{$input['pid']}' />
+							<input type='hidden' name='csrf_token' value='" . htmlsafechars($csrf) . "' />
+							<input type='hidden' name='pid' value='" . (int) $input['pid'] . "' />
 						<input type='submit' value='".$lang["info_add_rep"]."' class='button' accesskey='s' />
 						<input type='button' value='Close Window' class='button' accesskey='c' onclick='self.close()' />
 					</div>	
