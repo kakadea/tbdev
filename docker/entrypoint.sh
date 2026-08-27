@@ -24,4 +24,7 @@ fi
 chown -R www-data:www-data "$cache_dir"
 find "$cache_dir" -type f -name '*.php' -exec chmod 0660 {} \;
 
+if [ "$#" -eq 0 ]; then
+  set -- apache2-foreground
+fi
 exec "$@"

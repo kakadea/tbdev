@@ -32,6 +32,7 @@ RUN set -eux; \
 
 ENV TBDEV_CACHE_DIR=/var/lib/tbdev/runtime/cache
 ENTRYPOINT ["/usr/local/bin/tbdev-entrypoint"]
+CMD ["apache2-foreground"]
 USER root
 VOLUME ["/var/lib/tbdev/torrents", "/var/lib/tbdev/uploads", "/var/lib/tbdev/runtime", "/var/log/tbdev"]
 EXPOSE 80
