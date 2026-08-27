@@ -20,6 +20,8 @@ require_once "include/bittorrent.php";
 require_once "include/user_functions.php";
 require_once "include/html_functions.php";
 
+security_session_start();
+$csrf = security_csrf_token('upload');
 dbconn(false);
 
 loggedinorreturn();
@@ -37,6 +39,7 @@ loggedinorreturn();
 
     $HTMLOUT .= "
                 <form name='bbcode2text' enctype='multipart/form-data' action='takeupload.php' method='post'>
+                <input type='hidden' name='csrf_token' value='" . htmlsafechars($csrf) . "' />
                 <input type='hidden' name='MAX_FILE_SIZE' value='{$TBDEV['max_torrent_size']}' />";
 
     $HTMLOUT .="
@@ -50,15 +53,15 @@ loggedinorreturn();
                 <table  border='0' cellspacing='0' cellpadding='6'>
                       <tr>
                          <td class='heading' valign='top' align='right'>{$lang['upload_torrent']}</td>
-                         <td valign='top' align='left'><input type='file' name='file' size='80' /></td>
+                         <td valign='top' align='left'><input type='file' name='file' size='80' accept='.torrent,application/x-bittorrent' required /></td>
                       </tr>
                       <tr>
                          <td class='heading' valign='top' align='right'>{$lang['upload_name']}</td>
-                         <td valign='top' align='left'><input type='text' name='name' size='80' /><br />({$lang['upload_filename']})</td>
+                         <td valign='top' align='left'><input type='text' name='name' size='80' maxlength='255' required /><br />({$lang['upload_filename']})</td>
                       </tr>
                       <tr>
                          <td class='heading' valign='top' align='right'>{$lang['upload_nfo']}</td>
-                         <td valign='top' align='left'><input type='file' name='nfo' size='80' /><br />({$lang['upload_nfo_info']})</td>
+                         <td valign='top' align='left'><input type='file' name='nfo' size='80' accept='.nfo,text/plain' /><br />({$lang['upload_nfo_info']})</td>
                       </tr>
                       <tr>
                          <td class='heading' valign='top' align='right'>{$lang['upload_description']}</td>

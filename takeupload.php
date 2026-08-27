@@ -20,10 +20,21 @@ require_once("include/benc.php");
 require_once("include/bittorrent.php");
 require_once "include/user_functions.php";
 
+security_session_start();
+if (!security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'upload'))
+{
+  http_response_code(400);
+  exit('Invalid upload request.');
+}
+if (!security_rate_limit('upload', security_client_identity(), 30, 3600))
+{
+  http_response_code(429);
+  exit('Too many uploads. Please try again later.');
+}
+
 //@ini_set("upload_max_filesize",$TBDEV['max_torrent_size']);
 
-
-dbconn(); 
+dbconn();
 
 loggedinorreturn();
     
@@ -43,19 +54,23 @@ loggedinorreturn();
     if (!isset($_FILES["file"]))
       stderr($lang['takeupload_failed'], $lang['takeupload_no_formdata']);
 
-    $f = $_FILES["file"];
-    if (!isset($f['error']) || $f['error'] !== UPLOAD_ERR_OK)
+    $f = $_FILES['file'];
+    if (!isset($f['error']) || (int) $f['error'] !== UPLOAD_ERR_OK)
       stderr($lang['takeupload_failed'], $lang['takeupload_no_file']);
     if (!isset($f['size']) || (int) $f['size'] <= 0 || (int) $f['size'] > (int) $TBDEV['max_torrent_size'])
       stderr($lang['takeupload_failed'], $lang['takeupload_no_file']);
-    $fname = unesc($f["name"]);
+    if (!isset($f['tmp_name']) || !is_uploaded_file($f['tmp_name']))
+      stderr($lang['takeupload_failed'], $lang['takeupload_eek']);
+    $fname = basename((string) unesc($f['name']));
     if (empty($fname))
       stderr($lang['takeupload_failed'], $lang['takeupload_no_filename']);
       
     $nfo = sqlesc('');
     /////////////////////// NFO FILE ////////////////////////	
-    if(isset($_FILES['nfo']) && !empty($_FILES['nfo']['name'])) {
+    if (isset($_FILES['nfo']) && !empty($_FILES['nfo']['name'])) {
     $nfofile = $_FILES['nfo'];
+    if (!isset($nfofile['error']) || (int) $nfofile['error'] !== UPLOAD_ERR_OK)
+      stderr($lang['takeupload_failed'], $lang['takeupload_nfo_failed']);
     if ($nfofile['name'] == '')
       stderr($lang['takeupload_failed'], $lang['takeupload_no_nfo']);
 
@@ -74,11 +89,11 @@ loggedinorreturn();
     }
     /////////////////////// NFO FILE END /////////////////////
 
-    $descr = unesc($_POST['body']);
-    if (!$descr)
+    $descr = unesc((string) $_POST['body']);
+    if ($descr === '')
       stderr($lang['takeupload_failed'], $lang['takeupload_no_descr']);
 
-    $catid = (0 + $_POST["type"]);
+    $catid = (int) $_POST['type'];
     if (!is_valid_id($catid))
       stderr($lang['takeupload_failed'], $lang['takeupload_no_cat']);
       
@@ -87,12 +102,12 @@ loggedinorreturn();
     if (!preg_match('/^(.+)\.torrent$/si', $fname, $matches))
       stderr($lang['takeupload_failed'], $lang['takeupload_not_torrent']);
     $shortfname = $torrent = $matches[1];
-    if (!empty($_POST["name"]))
-      $torrent = unesc($_POST["name"]);
+    if (!empty($_POST['name']))
+      $torrent = trim((string) unesc($_POST['name']));
+    if ($torrent === '' || strlen($torrent) > 255)
+      stderr($lang['takeupload_failed'], $lang['takeupload_invalid']);
 
-    $tmpname = $f["tmp_name"];
-    if (!is_uploaded_file($tmpname))
-      stderr($lang['takeupload_failed'], $lang['takeupload_eek']);
+    $tmpname = $f['tmp_name'];
     if (!filesize($tmpname))
       stderr($lang['takeupload_failed'], $lang['takeupload_no_file']);
 
@@ -203,7 +218,7 @@ loggedinorreturn();
 
 
     $ret = mysql_query("INSERT INTO torrents (search_text, filename, owner, visible, info_hash, name, size, numfiles, type, descr, ori_descr, category, save_as, added, last_action, nfo, client_created_by) VALUES (" .
-        implode(",", array_map("sqlesc", array(searchfield("$shortfname $dname $torrent"), $fname, $CURUSER["id"], "no", $infohash, $torrent, $totallen, count($filelist), $type, $descr, $descr, 0 + $_POST["type"], $dname))) .
+                                implode(",", array_map("sqlesc", array(searchfield("$shortfname $dname $torrent"), $fname, $CURUSER['id'], 'no', $infohash, $torrent, $totallen, count($filelist), $type, $descr, $descr, $catid, $dname))) .
         ", " . TIME_NOW . ", " . TIME_NOW . ", $nfo, $tmaker)");
     if (!$ret) {
       if (mysql_errno() == 1062)
@@ -221,9 +236,20 @@ loggedinorreturn();
         return join(",",$new);
     }
 
-    mysql_query("INSERT INTO files (torrent, filename, size) VALUES ".file_list($filelist,$id));
+    if (!mysql_query("INSERT INTO files (torrent, filename, size) VALUES " . file_list($filelist, $id)))
+    {
+      mysql_query("DELETE FROM torrents WHERE id = " . (int) $id);
+      stderr($lang['takeupload_failed'], $lang['takeupload_error']);
+    }
 
-    move_uploaded_file($tmpname, "{$TBDEV['torrent_dir']}/$id.torrent");
+    $torrent_dir = rtrim((string) $TBDEV['torrent_dir'], '/\\');
+    if ($torrent_dir === '' || !is_dir($torrent_dir) || !is_writable($torrent_dir) ||
+        !move_uploaded_file($tmpname, $torrent_dir . '/' . (int) $id . '.torrent'))
+    {
+      mysql_query("DELETE FROM files WHERE torrent = " . (int) $id);
+      mysql_query("DELETE FROM torrents WHERE id = " . (int) $id);
+      stderr($lang['takeupload_failed'], 'Unable to store the torrent file. No upload was published.');
+    }
 
    write_log(sprintf($lang['takeupload_log'], $id, $torrent, $CURUSER['username']));
 
