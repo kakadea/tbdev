@@ -19,13 +19,15 @@
 require_once "include/bittorrent.php";
 require_once "include/user_functions.php";
 
+security_session_start();
+$friends_csrf = security_csrf_token('friends');
 dbconn(false);
 loggedinorreturn();
 
     $lang = array_merge( load_language('global'), load_language('friends') );
     
-    $userid = isset($_GET['id']) ? (int)$_GET['id'] : $CURUSER['id'];
-    $action = isset($_GET['action']) ? $_GET['action'] : '';
+    $userid = isset($_GET['id']) && !is_array($_GET['id']) ? (int) $_GET['id'] : $CURUSER['id'];
+    $action = isset($_GET['action']) && is_string($_GET['action']) ? $_GET['action'] : '';
 
     //if (!$userid)
     //	$userid = $CURUSER['id'];
@@ -39,10 +41,15 @@ loggedinorreturn();
 
     // action: add -------------------------------------------------------------
 
-    if ($action == 'add')
+    if ($action === 'add')
     {
-      $targetid = 0+$_GET['targetid'];
-      $type = $_GET['type'];
+      if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'friends'))
+      {
+        http_response_code(400);
+        exit('Invalid friends request.');
+      }
+      $targetid = isset($_POST['targetid']) && !is_array($_POST['targetid']) ? (int) $_POST['targetid'] : 0;
+      $type = isset($_POST['type']) && is_string($_POST['type']) ? $_POST['type'] : '';
 
       if (!is_valid_id($targetid))
         stderr($lang['friends_error'], $lang['friends_invalid_id']);
@@ -72,17 +79,28 @@ loggedinorreturn();
 
     // action: delete ----------------------------------------------------------
 
-    if ($action == 'delete')
+    if ($action === 'delete')
     {
-      $targetid = (int)$_GET['targetid'];
-      $sure = isset($_GET['sure']) ? htmlsafechars($_GET['sure']) : false;
-      $type = isset($_GET['type']) ? ($_GET['type'] == 'friend' ? 'friend' : 'block') : stderr($lang['friends_error'], 'LoL');
+      $targetid = isset($_GET['targetid']) && !is_array($_GET['targetid']) ? (int) $_GET['targetid'] : (isset($_POST['targetid']) && !is_array($_POST['targetid']) ? (int) $_POST['targetid'] : 0);
+      $sure = isset($_POST['sure']) && (string) $_POST['sure'] === '1';
+      $type = isset($_GET['type']) && is_string($_GET['type']) ? $_GET['type'] : (isset($_POST['type']) && is_string($_POST['type']) ? $_POST['type'] : '');
+      if (!in_array($type, array('friend', 'block'), true))
+        stderr($lang['friends_error'], $lang['friends_unknown']);
 
       if (!is_valid_id($targetid))
       stderr($lang['friends_error'], $lang['friends_invalid_id']);
 
-      if (!$sure)
-        stderr("{$lang['friends_delete']} $type", sprintf($lang['friends_sure'], $type, $userid, $type, $targetid) );
+      if (!$sure || $_SERVER['REQUEST_METHOD'] !== 'POST' || !security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'friends'))
+      {
+        $confirm = "<form method='post' action='friends.php?action=delete'>
+          <input type='hidden' name='csrf_token' value='" . htmlsafechars($friends_csrf) . "' />
+          <input type='hidden' name='type' value='" . htmlsafechars($type) . "' />
+          <input type='hidden' name='targetid' value='" . (int) $targetid . "' />
+          <input type='hidden' name='sure' value='1' />
+          <button type='submit'>Confirm</button>
+        </form>";
+        stderr($lang['friends_delete'] . ' ' . htmlsafechars($type), $confirm . ' ' . $lang['friends_sure']);
+      }
 
       if ($type == 'friend')
       {
@@ -139,9 +157,15 @@ loggedinorreturn();
           $title = get_user_class_name($friend["class"]);
         
         $userlink = "<a href='userdetails.php?id={$friend['id']}'><b>".htmlsafechars($friend['name'])."</b></a>";
-        $userlink .= get_user_icons($friend) . " ($title)<br />{$lang['friends_last_seen']} " . get_date( $friend['last_access'],'');
+        $userlink .= get_user_icons($friend) . " (" . htmlsafechars($title) . ")<br />{$lang['friends_last_seen']} " . get_date($friend['last_access'], '');
         
-        $delete = "<span class='btn'><a href='friends.php?id=$userid&amp;action=delete&amp;type=friend&amp;targetid={$friend['id']}'>{$lang['friends_remove']}</a></span>";
+        $delete = "<form method='post' action='friends.php?id=" . (int) $userid . "&amp;action=delete' style='display:inline;'>
+          <input type='hidden' name='csrf_token' value='" . htmlsafechars($friends_csrf) . "' />
+          <input type='hidden' name='type' value='friend' />
+          <input type='hidden' name='targetid' value='" . (int) $friend['id'] . "' />
+          <input type='hidden' name='sure' value='1' />
+          <button type='submit' class='btn'>" . htmlsafechars($lang['friends_remove']) . "</button>
+        </form>";
           
         $pm = "&nbsp;<span class='btn'><a href='sendmessage.php?receiver={$friend['id']}'>{$lang['friends_pm']}</a></span>";
           
@@ -182,7 +206,13 @@ loggedinorreturn();
       while ($block = mysql_fetch_assoc($res))
       {
         $blocks .= "<div style='border: 1px solid black;padding:5px;'>";
-        $blocks .= "<span class='btn' style='float:right;'><a href='friends.php?id=$userid&amp;action=delete&amp;type=block&amp;targetid={$block['id']}'>{$lang['friends_delete']}</a></span><br />";
+        $blocks .= "<form method='post' action='friends.php?id=" . (int) $userid . "&amp;action=delete' style='float:right;'>
+          <input type='hidden' name='csrf_token' value='" . htmlsafechars($friends_csrf) . "' />
+          <input type='hidden' name='type' value='block' />
+          <input type='hidden' name='targetid' value='" . (int) $block['id'] . "' />
+          <input type='hidden' name='sure' value='1' />
+          <button type='submit' class='btn'>" . htmlsafechars($lang['friends_delete']) . "</button>
+        </form><br />";
         $blocks .= "<p><a href='userdetails.php?id={$block['id']}'><b>" . htmlsafechars($block['name']) . "</b></a>";
         $blocks .= get_user_icons($block) . "</p></div><br />";
         

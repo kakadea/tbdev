@@ -20,6 +20,8 @@ ob_start("ob_gzhandler");
 require_once "include/bittorrent.php";
 require_once "include/bbcode_functions.php";
 require_once "include/user_functions.php";
+security_session_start();
+$friends_csrf = security_csrf_token('friends');
 // Connect to DB & check login
 dbconn();
 loggedinorreturn();
@@ -168,7 +170,7 @@ if (!$action)
         {
           $res2 = mysql_query("SELECT username FROM users WHERE id=" . sqlesc($row['sender']));
           $username = mysql_fetch_array($res2);
-          $username = "<a href='userdetails.php?id={$row['sender']}'>{$username[0]}</a>";
+          $username = "<a href='userdetails.php?id=" . (int) $row['sender'] . "'>" . htmlsafechars($username[0]) . "</a>";
 
           $id = 0+$row['sender'];
 
@@ -178,18 +180,29 @@ if (!$action)
 
           if ($friend) 
           {
-            $username .= "&nbsp;<a href='friends.php?action=delete&amp;type=friend&amp;targetid=$id'>{$lang['messages_remove_friends']}</a>";
-          } 
-          else 
+            $username .= "&nbsp;<form method='post' action='friends.php?id=" . (int) $CURUSER['id'] . "&amp;action=delete' style='display:inline;'>
+              <input type='hidden' name='csrf_token' value='" . htmlsafechars($friends_csrf) . "' />
+              <input type='hidden' name='type' value='friend' />
+              <input type='hidden' name='targetid' value='" . (int) $id . "' />
+              <input type='hidden' name='sure' value='1' />
+              <button type='submit' class='btn'>" . htmlsafechars($lang['messages_remove_friends']) . "</button>
+            </form>";
+          }
+          else
           {
-            $username .= "&nbsp;<a href='friends.php?action=add&amp;type=friend&amp;targetid=$id'>{$lang['messages_add_friends']}</a>";
+            $username .= "&nbsp;<form method='post' action='friends.php?id=" . (int) $CURUSER['id'] . "&amp;action=add' style='display:inline;'>
+              <input type='hidden' name='csrf_token' value='" . htmlsafechars($friends_csrf) . "' />
+              <input type='hidden' name='type' value='friend' />
+              <input type='hidden' name='targetid' value='" . (int) $id . "' />
+              <button type='submit' class='btn'>" . htmlsafechars($lang['messages_add_friends']) . "</button>
+            </form>";
           }
         }
         elseif ($row['sender'] == $CURUSER['id'])
         {
           $res2 = mysql_query("select username FROM users WHERE id=" . sqlesc($row['receiver']));
           $username = mysql_fetch_array($res2);
-          $username = "<a href='userdetails.php?id={$row['receiver']}'>{$username[0]}</a>";
+          $username = "<a href='userdetails.php?id=" . (int) $row['receiver'] . "'>" . htmlsafechars($username[0]) . "</a>";
 
           //if ($row['sender'] == $CURUSER['id'])
           //$id = 0+$row['receiver'];

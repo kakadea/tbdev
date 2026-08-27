@@ -21,6 +21,8 @@ require_once "include/user_functions.php";
 require_once "include/html_functions.php";
 require_once "include/bbcode_functions.php";
 
+security_session_start();
+$friends_csrf = security_csrf_token('friends');
 dbconn(false);
 
 loggedinorreturn();
@@ -164,13 +166,35 @@ function maketable($res)
       $block = mysql_num_rows($r);
 
       if ($friend)
-        $HTMLOUT .= "<p>(<a href='friends.php?action=delete&amp;type=friend&amp;targetid=$id'>{$lang['userdetails_remove_friends']}</a>)</p>\n";
-      elseif($block)
-        $HTMLOUT .= "<p>(<a href='friends.php?action=delete&amp;type=block&amp;targetid=$id'>{$lang['userdetails_remove_blocks']}</a>)</p>\n";
+        $HTMLOUT .= "<form method='post' action='friends.php?id=" . (int) $CURUSER['id'] . "&amp;action=delete' style='display:inline;'>
+          <input type='hidden' name='csrf_token' value='" . htmlsafechars($friends_csrf) . "' />
+          <input type='hidden' name='type' value='friend' />
+          <input type='hidden' name='targetid' value='" . (int) $id . "' />
+          <input type='hidden' name='sure' value='1' />
+          <button type='submit' class='btn'>" . htmlsafechars($lang['userdetails_remove_friends']) . "</button>
+        </form>\n";
+      elseif ($block)
+        $HTMLOUT .= "<form method='post' action='friends.php?id=" . (int) $CURUSER['id'] . "&amp;action=delete' style='display:inline;'>
+          <input type='hidden' name='csrf_token' value='" . htmlsafechars($friends_csrf) . "' />
+          <input type='hidden' name='type' value='block' />
+          <input type='hidden' name='targetid' value='" . (int) $id . "' />
+          <input type='hidden' name='sure' value='1' />
+          <button type='submit' class='btn'>" . htmlsafechars($lang['userdetails_remove_blocks']) . "</button>
+        </form>\n";
       else
       {
-        $HTMLOUT .= "<p>(<a href='friends.php?action=add&amp;type=friend&amp;targetid=$id'>{$lang['userdetails_add_friends']}</a>)";
-        $HTMLOUT .= " - (<a href='friends.php?action=add&amp;type=block&amp;targetid=$id'>{$lang['userdetails_add_blocks']}</a>)</p>\n";
+        $HTMLOUT .= "<form method='post' action='friends.php?id=" . (int) $CURUSER['id'] . "&amp;action=add' style='display:inline;'>
+          <input type='hidden' name='csrf_token' value='" . htmlsafechars($friends_csrf) . "' />
+          <input type='hidden' name='type' value='friend' />
+          <input type='hidden' name='targetid' value='" . (int) $id . "' />
+          <button type='submit' class='btn'>" . htmlsafechars($lang['userdetails_add_friends']) . "</button>
+        </form> - ";
+        $HTMLOUT .= "<form method='post' action='friends.php?id=" . (int) $CURUSER['id'] . "&amp;action=add' style='display:inline;'>
+          <input type='hidden' name='csrf_token' value='" . htmlsafechars($friends_csrf) . "' />
+          <input type='hidden' name='type' value='block' />
+          <input type='hidden' name='targetid' value='" . (int) $id . "' />
+          <button type='submit' class='btn'>" . htmlsafechars($lang['userdetails_add_blocks']) . "</button>
+        </form>\n";
       }
 
     }
