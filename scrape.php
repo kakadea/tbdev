@@ -30,18 +30,26 @@ require_once("include/legacy_db.php");
     if (!isset($_GET['info_hash']) || !is_string($_GET['info_hash']) || strlen($_GET['info_hash']) !== 20)
       error('Invalid hash');
 
-    $res = @mysql_query( "SELECT info_hash, seeders, leechers, times_completed FROM torrents WHERE " . hash_where( $_GET['info_hash']) );
-    
-    if( !mysql_num_rows($res) )
+    $info_hash = bin2hex($_GET['info_hash']);
+    $torrent_stmt = tbdev_db_prepare_execute(
+      'SELECT info_hash, seeders, leechers, times_completed FROM torrents WHERE info_hash = ? LIMIT 1',
+      's',
+      array($info_hash)
+    );
+    if (!$torrent_stmt)
+      error('Tracker database error');
+    $res = mysqli_stmt_get_result($torrent_stmt);
+    if (!$res || mysqli_num_rows($res) === 0)
       error('No torrent with that hash found');
     
     $benc = 'd5:files';
 
-    while ($row = mysql_fetch_assoc($res))
+    while ($row = mysqli_fetch_assoc($res))
     {
-      $benc .= 'd20:'.pack('H*', $row['info_hash'])."d8:completei{$row['seeders']}e10:downloadedi{$row['times_completed']}e10:incompletei{$row['leechers']}eeee";
-      //$benc .= 'd20:'.pack('H*', $row['info_hash'])."d8:completei{$row['seeders']}e10:downloadedi{$row['times_completed']}e10:incompletei{$row['leechers']}e";
+      $benc .= 'd20:' . pack('H*', $row['info_hash']) . "d8:completei{$row['seeders']}e10:downloadedi{$row['times_completed']}e10:incompletei{$row['leechers']}eeee";
     }
+    mysqli_free_result($res);
+    mysqli_stmt_close($torrent_stmt);
 
     //$benc .= 'd5:flagsd20:min_request_intervali1800ee';
     //$benc .= 'd5:flagsd20:min_request_intervali1800eee';
@@ -61,9 +69,5 @@ function error($err){
 
 }
 
-function hash_where($hash) {
 
-    return "info_hash = '" . mysql_real_escape_string( bin2hex($hash) ) . "'";
-
-}
 ?>
