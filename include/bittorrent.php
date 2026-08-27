@@ -613,7 +613,7 @@ function searchfield($s) {
 
 function genrelist() {
     $ret = array();
-    $res = mysql_query("SELECT id, name FROM categories ORDER BY name");
+    $res = mysql_query("SELECT id, name, image, cat_desc FROM categories ORDER BY name");
     while ($row = mysql_fetch_array($res))
         $ret[] = $row;
     return $ret;
