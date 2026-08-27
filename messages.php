@@ -22,6 +22,7 @@ require_once "include/bbcode_functions.php";
 require_once "include/user_functions.php";
 security_session_start();
 $friends_csrf = security_csrf_token('friends');
+$messages_csrf = security_csrf_token('messages');
 // Connect to DB & check login
 dbconn();
 loggedinorreturn();
@@ -128,7 +129,8 @@ if (!$action)
 
     <form action='messages.php' method='post' name='mutliact'>
 
-    <input type='hidden' name='action' value='moveordel' />
+        <input type='hidden' name='action' value='moveordel' />
+    <input type='hidden' name='csrf_token' value='" . htmlsafechars($messages_csrf) . "' />
     <table border='0' cellpadding='4' cellspacing='0' width='737'>
     <tr>
     <td width='1%' class='colhead'>{$lang['messages_status']}</td>
@@ -360,7 +362,8 @@ if (!$action)
       <td colspan='2'><div style='float:left;vertical-align:middle'>
       <form action='messages.php' method='post'>
       <input type='hidden' name='action' value='moveordel' />
-      <input type='hidden' name='id' value='{$pm_id}' />
+      <input type='hidden' name='csrf_token' value='" . htmlsafechars($messages_csrf) . "' />
+      <input type='hidden' name='id' value='" . (int) $pm_id . "' />
       Move to: <select name='box'><option value='1'>{$lang['messages_inbox']}</option>";
       
       $res = mysql_query('select * FROM pmboxes WHERE userid=' . sqlesc($CURUSER['id']) . ' ORDER BY boxnumber') or sqlerr(__FILE__,__LINE__);
@@ -371,7 +374,7 @@ if (!$action)
       
       $HTMLOUT .= "</select> <input type='submit' name='move' value='{$lang['messages_move']}' class='btn' />
       </form></div>
-      <span style='float:right;vertical-align:inherit'><a href='messages.php'><span class='btn'>{$lang['messages_return']}</span></a>&nbsp;<a href='messages.php?action=deletemessage&amp;id=$pm_id'><span class='btn'>{$lang['messages_delete']}</span></a>&nbsp;{$reply}&nbsp;<a href='messages.php?action=forward&amp;id={$pm_id}'><span class='btn'>{$lang['messages_forward']}</span></a></span></td>
+      <span style='float:right;vertical-align:inherit'><a href='messages.php'><span class='btn'>{$lang['messages_return']}</span></a>&nbsp;<form action='messages.php?action=deletemessage' method='post' style='display:inline;'><input type='hidden' name='csrf_token' value='" . htmlsafechars($messages_csrf) . "' /><input type='hidden' name='id' value='" . (int) $pm_id . "' /><button type='submit' class='btn'>" . htmlsafechars($lang['messages_delete']) . "</button></form>&nbsp;{$reply}&nbsp;<a href='messages.php?action=forward&amp;id={$pm_id}'><span class='btn'>{$lang['messages_forward']}</span></a></span></td>
       </tr>
       </table>";
       
@@ -379,13 +382,26 @@ if (!$action)
       print stdhead("PM ($subject)", false). $HTMLOUT . stdfoot();
     }
     
-    if ($action == "moveordel")
+    if ($action === 'moveordel')
     {
-      $pm_id = (int) $_POST['id'];
-      $pm_box = (int) $_POST['box'];
-      $pm_messages = $_POST['messages'];
-      
-      if ($_POST['move'])
+      if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'messages'))
+      {
+        http_response_code(400);
+        exit('Invalid message action.');
+      }
+      $pm_id = isset($_POST['id']) && !is_array($_POST['id']) ? (int) $_POST['id'] : 0;
+      $pm_box = isset($_POST['box']) && !is_array($_POST['box']) ? (int) $_POST['box'] : 0;
+      $pm_messages = array();
+      if (isset($_POST['messages']) && is_array($_POST['messages']))
+      {
+        foreach ($_POST['messages'] as $message_id)
+          if (is_scalar($message_id) && is_valid_id((int) $message_id))
+            $pm_messages[] = (int) $message_id;
+      }
+      if (!$pm_id && count($pm_messages) === 0)
+        stderr($lang['messages_error'], $lang['messages_no_action']);
+
+      if (isset($_POST['move']))
       {
         if ($pm_id)
         {
@@ -395,7 +411,9 @@ if (!$action)
         else
         {
           // Move multiple messages
-          @mysql_query("UPDATE messages SET location=" . sqlesc($pm_box) . " WHERE id IN (" . implode(", ", array_map("sqlesc",$pm_messages)) . ') AND receiver=' .
+          if ($pm_box < PM_INBOX)
+            stderr($lang['messages_error'], $lang['messages_invalid_box']);
+          @mysql_query("UPDATE messages SET location=" . (int) $pm_box . " WHERE id IN (" . implode(', ', $pm_messages) . ') AND receiver=' .
 
           $CURUSER['id']);
         }
@@ -408,7 +426,7 @@ if (!$action)
       header("Location: messages.php?action=viewmailbox&box=" . $pm_box);
       exit();
       }
-      elseif ($_POST['delete'])
+      elseif (isset($_POST['delete']))
       {
         if ($pm_id)
         {
@@ -473,7 +491,7 @@ if (!$action)
       stderr("{$lang['messages_error']}","{$lang['messages_no_action']}");
     }
     
-    if ($action == "forward")
+    if ($action === 'forward')
     {
     if ($_SERVER['REQUEST_METHOD'] == 'GET')
     {
@@ -523,7 +541,8 @@ if (!$action)
       $HTMLOUT .= "<h1>$subject</h1>
       <form action='messages.php' method='post'>
       <input type='hidden' name='action' value='forward' />
-      <input type='hidden' name='id' value='$pm_id' />
+      <input type='hidden' name='csrf_token' value='" . htmlsafechars($messages_csrf) . "' />
+      <input type='hidden' name='id' value='" . (int) $pm_id . "' />
       <table border='0' cellpadding='4' cellspacing='0'  width='737'>
       <tr>
       <td class='colhead'>{$lang['messages_to']}</td>
@@ -558,7 +577,17 @@ if (!$action)
       else
       {
         // Forward the message
-        $pm_id = (int) $_POST['id'];
+        if (!security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'messages'))
+        {
+          http_response_code(400);
+          exit('Invalid message forward request.');
+        }
+        if (!security_rate_limit('message-forward', security_client_identity() . '|' . (int) $CURUSER['id'], 20, 300))
+        {
+          http_response_code(429);
+          exit('Too many forwarded messages. Please try again later.');
+        }
+        $pm_id = isset($_POST['id']) && !is_array($_POST['id']) ? (int) $_POST['id'] : 0;
 
         // Get the message
         $res = mysql_query("select * FROM messages WHERE id=" . sqlesc($pm_id) . " AND (receiver=" . sqlesc($CURUSER['id']) . " OR sender=" . sqlesc($CURUSER['id']) .") LIMIT 1") or sqlerr(__FILE__,__LINE__);
@@ -575,8 +604,10 @@ if (!$action)
         
         $message = mysql_fetch_assoc($res);
 
-        $subject = (string) $_POST['subject'];
-        $username = strip_tags($_POST['to']);
+        $subject = isset($_POST['subject']) && is_string($_POST['subject']) ? trim(strip_tags($_POST['subject'])) : '';
+        $username = isset($_POST['to']) && is_string($_POST['to']) ? trim(strip_tags($_POST['to'])) : '';
+        if ($subject === '' || strlen($subject) > 120 || $username === '' || strlen($username) > 80)
+          stderr($lang['messages_error'], $lang['messages_no_user']);
 
         // Try finding a user with specified name
         $res = mysql_query("select id FROM users WHERE LOWER(username)=LOWER(" . sqlesc($username) . ") LIMIT 1");
@@ -593,22 +624,26 @@ if (!$action)
         $to = mysql_fetch_array($res);
         $to = $to[0];
 
-        // Get Orignal sender's username
-        if ($message['sender'] == 0)
+        // Get original sender's username for the quoted text.
+        if ((int) $message['sender'] === 0)
         {
-          $from = "{$lang['messages_system']}";
+          $from_name = $lang['messages_system'];
         }
         else
         {
-          $res = mysql_query("select * FROM users WHERE id=" . sqlesc($message['sender'])) or sqlerr(__FILE__,__LINE__);
-          $from = mysql_fetch_assoc($res);
-          $from = $from['username'];
+          $sender_res = mysql_query("SELECT username FROM users WHERE id=" . (int) $message['sender'] . " LIMIT 1") or sqlerr(__FILE__, __LINE__);
+          $sender_row = mysql_fetch_assoc($sender_res);
+          $from_name = $sender_row ? (string) $sender_row['username'] : $lang['messages_system'];
         }
 
-        $body = (isset($_POST['msg'])?(string)$_POST['msg']:'');
-        $body .= sprintf($lang['messages_original1'], $from, $message['msg']);
+        $body = isset($_POST['msg']) && is_string($_POST['msg']) ? trim($_POST['msg']) : '';
+        if (strlen($body) > 20000)
+          stderr($lang['messages_error'], 'Message is too long.');
+        $body .= sprintf($lang['messages_original1'], $from_name, $message['msg']);
+        if (strlen($body) > 50000)
+          stderr($lang['messages_error'], 'Message is too long.');
 
-        $save = (isset($_POST['save'])?(int)$_POST['save']:'');
+        $save = isset($_POST['save']) && (string) $_POST['save'] === '1' ? 'yes' : 'no';
 
         if ($save)
         {
@@ -619,22 +654,26 @@ if (!$action)
           $save = 'no';
         }
 
-        //Make sure recipient wants this message
+        // Make sure the recipient accepts this message.
+        $recipient_res = mysql_query("SELECT acceptpms FROM users WHERE id=" . (int) $to . " LIMIT 1") or sqlerr(__FILE__, __LINE__);
+        $recipient = mysql_fetch_assoc($recipient_res);
+        if (!$recipient)
+          stderr($lang['messages_error'], $lang['messages_no_user']);
         if ($CURUSER['class'] < UC_MODERATOR)
         {
-          if ($from["acceptpms"] == "yes")
+          if ($recipient['acceptpms'] === 'yes')
           {
-            $res2 = mysql_query("select * FROM blocks WHERE userid=$to AND blockid=" . $CURUSER["id"]) or sqlerr(__FILE__, __LINE__);
+            $res2 = mysql_query("SELECT id FROM blocks WHERE userid=" . (int) $to . " AND blockid=" . (int) $CURUSER['id']) or sqlerr(__FILE__, __LINE__);
             if (mysql_num_rows($res2) == 1)
             stderr("{$lang['messages_refused']}", "{$lang['messages_blocked']}");
           }
-          elseif ($from["acceptpms"] == "friends")
+          elseif ($recipient['acceptpms'] === 'friends')
           {
-            $res2 = mysql_query("select * FROM friends WHERE userid=$to AND friendid=" . $CURUSER["id"]) or sqlerr(__FILE__, __LINE__);
+            $res2 = mysql_query("SELECT id FROM friends WHERE userid=" . (int) $to . " AND friendid=" . (int) $CURUSER['id']) or sqlerr(__FILE__, __LINE__);
             if (mysql_num_rows($res2) != 1)
             stderr("{$lang['messages_refused']}", "{$lang['messages_only_friends']}");
           }
-          elseif ($from["acceptpms"] == "no")
+          elseif ($recipient['acceptpms'] === 'no')
           {
             stderr("{$lang['messages_refused']}", "{$lang['messages_decline']}");
           }
