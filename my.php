@@ -21,6 +21,8 @@ require_once "include/html_functions.php";
 require_once "include/user_functions.php";
 require_once ROOT_PATH."/cache/timezones.php";
 
+security_session_start();
+$csrf = security_csrf_token('profile');
 dbconn(false);
 
 loggedinorreturn();
@@ -92,7 +94,8 @@ loggedinorreturn();
       <a href='users.php'>{$lang['my_search']}</a>
       </td>
     <td>
-      <form method='post' action='takeprofedit.php'>";
+      <form method='post' action='takeprofedit.php'>
+      <input type='hidden' name='csrf_token' value='" . htmlsafechars($csrf) . "' />";
 
 
     /***********************
@@ -243,11 +246,11 @@ loggedinorreturn();
     <fieldset><legend><strong>{$lang['my_info']}</strong></legend>
     <textarea name='info' cols='50' rows='4'>" . htmlsafechars($CURUSER["info"]) . "</textarea><br />{$lang['my_tags']}</fieldset>
     <fieldset><legend><strong>{$lang['my_email']}</strong></legend>
-    <input type='text' name='email' size='50' value='" . htmlsafechars($CURUSER["email"]) . "' /><br />{$lang['my_email_pass']}<br /><input type='password' name='chmailpass' size='50' />
+    <input type='email' name='email' size='50' maxlength='80' value='" . htmlsafechars($CURUSER["email"]) . "' /><br />{$lang['my_email_pass']}<br /><input type='password' name='chmailpass' size='50' />
     <br />{$lang['my_note']}</fieldset>
-    <fieldset><legend><strong>{$lang['my_chpass']}</strong></legend><input type='password' name='chpassword' size='50' />
+    <fieldset><legend><strong>{$lang['my_chpass']}</strong></legend><input type='password' name='chpassword' size='50' autocomplete='new-password' minlength='10' maxlength='200' />
     <br />{$lang['my_pass_again']}
-    <br /><input type='password' name='passagain' size='50' /></fieldset>";
+    <br /><input type='password' name='passagain' size='50' autocomplete='new-password' minlength='10' maxlength='200' /></fieldset>";
 
     function priv($name, $descr) {
       global $CURUSER;

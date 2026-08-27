@@ -20,6 +20,12 @@ require_once "include/bittorrent.php";
 require_once "include/user_functions.php";
 require_once "include/password_functions.php";
 
+security_session_start();
+if (!security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'profile'))
+{
+  http_response_code(400);
+  exit('Invalid profile update request.');
+}
 
 dbconn();
 
@@ -35,13 +41,33 @@ loggedinorreturn();
     $updateset = array();
     $changedemail = 0;
 
-    if ($chpassword != "") 
+    $password_change_requested = ($chpassword !== '');
+    $email_change_requested = ($email !== $CURUSER['email']);
+    $current_password_valid = false;
+    if ($password_change_requested || $email_change_requested)
     {
-      if (strlen($chpassword) > 40)
-        stderr("Update failed!", $lang['takeprofedit_pass_long']);
-      if ($chpassword != $passagain)
+      if ($chmailpass === '')
+        stderr("Update failed!", 'Enter your current password before changing account credentials.');
+
+      if (!empty($CURUSER['password_hash']))
+        $current_password_valid = password_verify($chmailpass, $CURUSER['password_hash']);
+      else
+        $current_password_valid = hash_equals(
+          (string) $CURUSER['passhash'],
+          make_passhash($CURUSER['secret'], md5($chmailpass))
+        );
+
+      if (!$current_password_valid)
+        stderr("Update failed!", 'The current password is incorrect.');
+    }
+
+    if ($password_change_requested)
+    {
+      if (strlen($chpassword) < 10 || strlen($chpassword) > 200)
+        stderr("Update failed!", 'Password must be between 10 and 200 characters.');
+      if (!hash_equals($chpassword, $passagain))
         stderr("Update failed!", $lang['takeprofedit_pass_not_match']);
-      
+
       $secret = mksecret();
       $passhash = make_passhash($secret, md5($chpassword));
       $modernpasshash = password_hash($chpassword, PASSWORD_DEFAULT);
@@ -54,18 +80,18 @@ loggedinorreturn();
       logincookie($CURUSER['id'], $passhash);
     }
 
-    if ($email != $CURUSER["email"]) 
+    if ($email_change_requested)
     {
       if (!validemail($email))
         stderr("Update failed!", $lang['takeprofedit_not_valid_email']);
-      $r = mysql_query("SELECT id FROM users WHERE email=" . sqlesc($email)) or sqlerr();
-      if ( mysql_num_rows($r) > 0 || ($CURUSER["passhash"] != make_passhash( $CURUSER['secret'], md5($chmailpass) ) ) )
+      $r = mysql_query("SELECT id FROM users WHERE email = " . sqlesc($email) . " AND id <> " . (int) $CURUSER['id']) or sqlerr();
+      if (mysql_num_rows($r) > 0)
         stderr("Update failed!", $lang['takeprofedit_address_taken']);
       $changedemail = 1;
     }
 
 
-    $acceptpms = $_POST["acceptpms"];
+    $acceptpms = isset($_POST['acceptpms']) && in_array($_POST['acceptpms'], array('yes', 'friends', 'no'), true) ? $_POST['acceptpms'] : 'yes';
     $deletepms = isset($_POST["deletepms"]) ? "yes" : "no";
     $savepms = (isset($_POST['savepms']) && $_POST["savepms"] != "" ? "yes" : "no");
     $pmnotif = isset($_POST["pmnotif"]) ? $_POST["pmnotif"] : '';
@@ -81,47 +107,16 @@ loggedinorreturn();
         $notifs .= "[cat{$a['id']}]";
     }
 
-    /////// do the avatar stuff
+    /////// avatar policy during the migration
     $avatars = (isset($_POST['avatars']) ? "yes" : "no");
-    $avatar = trim( urldecode( $_POST["avatar"] ) );
-      
-      if ( preg_match( "/^http:\/\/$/i", $avatar ) 
-          or preg_match( "/[?&;]/", $avatar ) 
-          or preg_match("#javascript:#is", $avatar ) 
-          or !preg_match("#^https?://(?:[^<>*\"]+|[a-z0-9/\._\-!]+)$#iU", $avatar ) 
-          )
-      {
-        $avatar='';
-      }
-      
-      if( !empty($avatar) ) 
-      {
-        $img_size = @GetImageSize( $avatar );
-
-        if($img_size == FALSE || !in_array($img_size['mime'], $TBDEV['allowed_ext']))
-          stderr($lang['takeprofedit_user_error'], $lang['takeprofedit_image_error']);
-
-        if($img_size[0] < 5 || $img_size[1] < 5)
-          stderr($lang['takeprofedit_user_error'], $lang['takeprofedit_small_image']);
-      
-        if ( ( $img_size[0] > $TBDEV['av_img_width'] ) OR ( $img_size[1] > $TBDEV['av_img_height'] ) )
-        { 
-            $image = resize_image( array(
-                             'max_width'  => $TBDEV['av_img_width'],
-                             'max_height' => $TBDEV['av_img_height'],
-                             'cur_width'  => $img_size[0],
-                             'cur_height' => $img_size[1]
-                        )      );
-                        
-          }
-          else 
-          {
-            $image['img_width'] = $img_size[0];
-            $image['img_height'] = $img_size[1];
-          }
-          
-    $updateset[] = "av_w = " . $image['img_width'];
-    $updateset[] = "av_h = " . $image['img_height'];
+    $avatar = trim(rawurldecode(isset($_POST['avatar']) ? (string) $_POST['avatar'] : ''));
+    $existing_avatar = (string) $CURUSER['avatar'];
+    if ($avatar !== '' && $avatar !== $existing_avatar)
+      stderr($lang['takeprofedit_user_error'], 'Remote avatar URLs are disabled. Use an approved local avatar upload.');
+    if ($avatar === '')
+    {
+      $updateset[] = "av_w = 0";
+      $updateset[] = "av_h = 0";
     }
     /////////////// avatar end /////////////////
 
@@ -144,9 +139,9 @@ loggedinorreturn();
     $updateset[] = "privacy = '$privacy'";
     */
 
-    $updateset[] = "torrentsperpage = " . min(100, 0 + $_POST["torrentsperpage"]);
-    $updateset[] = "topicsperpage = " . min(100, 0 + $_POST["topicsperpage"]);
-    $updateset[] = "postsperpage = " . min(100, 0 + $_POST["postsperpage"]);
+    $updateset[] = "torrentsperpage = " . max(0, min(100, (int) ($_POST['torrentsperpage'] ?? 0)));
+    $updateset[] = "topicsperpage = " . max(0, min(100, (int) ($_POST['topicsperpage'] ?? 0)));
+    $updateset[] = "postsperpage = " . max(0, min(100, (int) ($_POST['postsperpage'] ?? 0)));
 
     if (is_valid_id($stylesheet))
       $updateset[] = "stylesheet = '$stylesheet'";
