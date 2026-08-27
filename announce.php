@@ -30,7 +30,7 @@ $TBDEV['connectable_check'] = 0;
 
 define( 'TIME_NOW', time() );
 
-$agent = $_SERVER["HTTP_USER_AGENT"];
+$agent = isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
 
 // Deny access made with a browser...
 if (
@@ -41,7 +41,7 @@ if (
     )
     err("torrent not registered with this tracker CODE 1");
 
-if( !$_GET['compact'] )
+if (!isset($_GET['compact']) || (string) $_GET['compact'] !== '1')
   {
     err('Sorry, this tracker no longer supports non-compact clients!');
   }
@@ -126,15 +126,18 @@ if(isset($_GET["$x"]))
 $GLOBALS[$x] = "" . $_GET[$x];
 }
 
-foreach (array("port","downloaded","uploaded","left") as $x)
+foreach (array('passkey', 'info_hash', 'peer_id', 'port', 'downloaded', 'uploaded', 'left') as $x)
 {
-$GLOBALS[$x] = 0 + $_GET[$x];
+    if (!isset($_GET[$x]))
+        err("Missing key: $x");
 }
 
-
-foreach (array("passkey","info_hash","peer_id","port","downloaded","uploaded","left") as $x)
-
-if (!isset($x)) err("Missing key: $x");
+foreach (array('port', 'downloaded', 'uploaded', 'left') as $x)
+{
+    if (!preg_match('/^\\d+$/D', (string) $_GET[$x]))
+        err("Invalid $x");
+    $GLOBALS[$x] = (int) $_GET[$x];
+}
 
 
 
@@ -157,10 +160,10 @@ $rsize = 30;
 foreach(array("num want", "numwant", "num_want") as $k)
 {
 	if (isset($_GET[$k]))
-	{
-		$rsize = (int)$_GET[$k];
-		break;
-	}
+		{
+			$rsize = max(0, min(100, (int) $_GET[$k]));
+			break;
+		}
 }
 
 
@@ -168,7 +171,9 @@ if (!$port || $port > 0xffff)
 	err("invalid port");
 
 if (!isset($event))
-	$event = "";
+		$event = "";
+if (!in_array($event, array('', 'started', 'completed', 'stopped'), true))
+    err('Invalid event');
 
 $seeder = ($left == 0) ? "yes" : "no";
 
