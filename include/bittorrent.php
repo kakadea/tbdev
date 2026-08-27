@@ -252,8 +252,27 @@ function htmlsafechars($txt='') {
 }
 
 
+function tbdev_upload_filename($name) {
+    if (!is_string($name) || $name === '')
+        return '';
+
+    $name = str_replace(chr(0), '', $name);
+    $name = str_replace(chr(92), '/', $name);
+    $name = basename($name);
+    $name = trim($name, " \t\r\n\0\x0B.");
+
+    if ($name === '' || $name === '.' || $name === '..' || strlen($name) > 255)
+        return '';
+    if (preg_match('/[\\x00-\\x1F\\x7F]/', $name))
+        return '';
+    if (strpbrk($name, ':*?"<>|') !== false)
+        return '';
+
+    return $name;
+}
+
 function validfilename($name) {
-    return preg_match('/^[^\0-\x1f:\\\\/?*\xff#<>|]+$/si', $name);
+    return tbdev_upload_filename($name) !== '';
 }
 
 function tbdev_retire_module($module) {

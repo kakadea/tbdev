@@ -4,7 +4,7 @@ $lang = array(
 
 #upload errors
 'upload_sorry' => "Sorry...",
-'upload_no_auth' => "You are not authorized to upload torrents.  (See <a href='faq.php#up'>Uploading</a> in the FAQ.)",
+'upload_no_auth' => "You are not authorized to upload torrents. This function requires the Uploader class or higher.",
 'upload_announce_url' => "The tracker's announce url is",
 'upload_delete' => "Delete",
 

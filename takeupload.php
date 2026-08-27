@@ -61,10 +61,10 @@ loggedinorreturn();
       stderr($lang['takeupload_failed'], $lang['takeupload_no_file']);
     if (!isset($f['tmp_name']) || !is_uploaded_file($f['tmp_name']))
       stderr($lang['takeupload_failed'], $lang['takeupload_eek']);
-    $fname = basename((string) unesc($f['name']));
-    if (empty($fname))
+    $fname = tbdev_upload_filename((string) unesc($f['name']));
+    if ($fname === '')
       stderr($lang['takeupload_failed'], $lang['takeupload_no_filename']);
-      
+
     $nfo = sqlesc('');
     /////////////////////// NFO FILE ////////////////////////	
     if (isset($_FILES['nfo']) && !empty($_FILES['nfo']['name'])) {
@@ -97,8 +97,6 @@ loggedinorreturn();
     if (!is_valid_id($catid))
       stderr($lang['takeupload_failed'], $lang['takeupload_no_cat']);
       
-    if (!validfilename($fname))
-      stderr($lang['takeupload_failed'], $lang['takeupload_invalid']);
     if (!preg_match('/^(.+)\.torrent$/si', $fname, $matches))
       stderr($lang['takeupload_failed'], $lang['takeupload_not_torrent']);
     $shortfname = $torrent = $matches[1];
