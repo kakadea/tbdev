@@ -23,12 +23,15 @@ if ( ! defined( 'IN_TBDEV_FORUM' ) )
 }
 
 
+    security_session_start();
+    $forum_user_csrf = security_csrf_token('forum-user-action');
+    $forum_mod_csrf = security_csrf_token('forum-mod');
 
     //-------- Action: Edit post
 
     if ($action == "editpost")
     {
-      $postid = 0+$_GET["postid"];
+      $postid = isset($_GET['postid']) && !is_array($_GET['postid']) ? (int) $_GET['postid'] : 0;
 
       if (!is_valid_id($postid))
         stderr("{$lang['forum_user_options_user_error']}", "{$lang['forum_user_options_incorrect']}");
@@ -51,12 +54,19 @@ if ( ! defined( 'IN_TBDEV_FORUM' ) )
       if (($CURUSER["id"] != $arr["userid"] || $locked) && get_user_class() < UC_MODERATOR)
         stderr("{$lang['forum_user_options_error']}", "{$lang['forum_user_options_denied']}");
 
-      if ($_SERVER['REQUEST_METHOD'] == 'POST')
+      if ($_SERVER['REQUEST_METHOD'] === 'POST')
       {
-        $body = $_POST['body'];
+        if (!security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'forum-user-action'))
+        {
+          http_response_code(400);
+          exit('Invalid forum edit request.');
+        }
+        $body = isset($_POST['body']) && is_string($_POST['body']) ? trim($_POST['body']) : '';
 
-        if ($body == "")
-          stderr("{$lang['forum_user_options_error']}", "{$lang['forum_user_options_body']}");
+        if ($body === '')
+          stderr($lang['forum_user_options_error'], $lang['forum_user_options_body']);
+        if (strlen($body) > 50000)
+          stderr($lang['forum_user_options_error'], 'Post is too long.');
 
         $body = sqlesc($body);
 
@@ -64,28 +74,21 @@ if ( ! defined( 'IN_TBDEV_FORUM' ) )
 
         @mysql_query("UPDATE posts SET body=$body, editedat=$editedat, editedby=$CURUSER[id] WHERE id=$postid") or sqlerr(__FILE__, __LINE__);
 
-        $returnto = $_POST["returnto"];
-
-        if ($returnto != "")
-        {
-          $returnto .= "&page=p$postid#$postid";
-          header("Location: $returnto");
-        }
-        else
-          stderr("{$lang['forum_user_options_success']}", "{$lang['forum_user_options_edit_success']}");
+        $returnto = security_validate_return_to(isset($_POST['returnto']) ? $_POST['returnto'] : '', '/forums.php?action=viewtopic&topicid=' . (int) $arr['topicid']);
+        $separator = strpos($returnto, '?') === false ? '?' : '&';
+        header('Location: ' . $returnto . $separator . 'page=p' . $postid . '#' . $postid);
+        exit;
       }
 
       $HTMLOUT = '';
       $js = "<script type='text/javascript' src='scripts/bbcode2text.js'></script>";
-      $returnto = htmlsafechars(filter_var($_SERVER["HTTP_REFERER"], FILTER_SANITIZE_STRING));
-      
-      $HTMLOUT .= "<h1>{$lang['forum_user_options_edit_post_header']}</h1>
+      $returnto = '/forums.php?action=viewtopic&topicid=' . (int) $arr['topicid'];
+
+      $HTMLOUT = "<h1>{$lang['forum_user_options_edit_post_header']}</h1>
 
       <form name='bbcode2text' method='post' action='forums.php?action=editpost&amp;postid=$postid'>
-      <input type='hidden' name='returnto' value='{$returnto}' />
-      <div align='center'>
-      <input style='width:615px;' type='text' name='subject' size='50' value='{$title}' />
-      </div>";
+      <input type='hidden' name='csrf_token' value='" . htmlsafechars($forum_user_csrf) . "' />
+      <input type='hidden' name='returnto' value='" . htmlsafechars($returnto) . "' />";
       
       $HTMLOUT .= bbcode2textarea( 'body', $arr["body"] );
       
@@ -102,11 +105,11 @@ if ( ! defined( 'IN_TBDEV_FORUM' ) )
 
     if ($action == "deletepost")
     {
-      $postid = isset($_GET["postid"]) ? (int)$_GET["postid"] : 0;
-      
-      $forumid = isset($_GET["forumid"]) ? (int)$_GET["forumid"] : 0;
+      $postid = isset($_GET['postid']) && !is_array($_GET['postid']) ? (int) $_GET['postid'] : (isset($_POST['postid']) && !is_array($_POST['postid']) ? (int) $_POST['postid'] : 0);
 
-      $sure = isset($_GET["sure"]) ? $_GET["sure"] : 0;
+      $forumid = isset($_GET['forumid']) && !is_array($_GET['forumid']) ? (int) $_GET['forumid'] : (isset($_POST['forumid']) && !is_array($_POST['forumid']) ? (int) $_POST['forumid'] : 0);
+
+      $sure = isset($_POST['sure']) && (string) $_POST['sure'] === '1';
 
       if ( get_user_class() < UC_MODERATOR || !is_valid_id($postid) || !is_valid_id($forumid) )
         stderr("{$lang['forum_user_options_user_error']}", "{$lang['forum_user_options_access']}");
@@ -129,8 +132,9 @@ if ( ! defined( 'IN_TBDEV_FORUM' ) )
       {
         $err = "<form method='post' action='forums.php?action=deletetopic'>
               <input name='action' value='deletetopic' type='hidden'>
-              <input name='topicid' value='$topicid' type='hidden'>
-              <input name='forumid' value='$forumid' type='hidden'>
+              <input name='csrf_token' value='" . htmlsafechars($forum_mod_csrf) . "' type='hidden'>
+              <input name='topicid' value='" . (int) $topicid . "' type='hidden'>
+              <input name='forumid' value='" . (int) $forumid . "' type='hidden'>
               <input name='sure' value='1' type='checkbox'>I'm sure
               <input value='Delete Topic' type='submit'>
               </form>";
@@ -155,10 +159,16 @@ if ( ! defined( 'IN_TBDEV_FORUM' ) )
 
       //------- Make sure we know what we do :-)
 
-      if (!$sure)
+      if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !$sure || !security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'forum-user-action'))
       {
-        stderr("{$lang['forum_user_options_delete_post']}", "{$lang['forum_user_options_sanity_check']}" .
-        "<a href='forums.php?action=deletepost&amp;postid=$postid&amp;forumid=$forumid&amp;sure=1'>{$lang['forum_user_options_here']}</a> {$lang['forum_user_options_sure']}");
+        $confirm = "<form method='post' action='forums.php?action=deletepost'>
+          <input type='hidden' name='csrf_token' value='" . htmlsafechars($forum_user_csrf) . "' />
+          <input type='hidden' name='postid' value='" . (int) $postid . "' />
+          <input type='hidden' name='forumid' value='" . (int) $forumid . "' />
+          <input type='hidden' name='sure' value='1' />
+          <button type='submit'>{$lang['forum_user_options_here']}</button>
+        </form>";
+        stderr($lang['forum_user_options_delete_post'], $lang['forum_user_options_sanity_check'] . $confirm . ' ' . $lang['forum_user_options_sure']);
       }
 
       //------- Delete post
