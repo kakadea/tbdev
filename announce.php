@@ -15,7 +15,9 @@
 |   $Author$
 |   $URL$
 +------------------------------------------------
-*/error_reporting(0);
+*/
+error_reporting(E_ALL);
+ini_set('display_errors', '0');
 require_once "include/config.php";
 require_once "include/legacy_db.php";
 ////////////////// GLOBAL VARIABLES ////////////////////////////
@@ -28,7 +30,6 @@ $TBDEV['connectable_check'] = 0;
 
 // DO NOT EDIT BELOW UNLESS YOU KNOW WHAT YOU'RE DOING!!
 
-define( 'TIME_NOW', time() );
 
 $agent = isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
 
@@ -52,9 +53,10 @@ function dbconn()
 
     if (!@mysql_connect($TBDEV['mysql_host'], $TBDEV['mysql_user'], $TBDEV['mysql_pass']))
     {
-	  err('Please call back later');
+        err('Please call back later');
     }
     mysql_select_db($TBDEV['mysql_db']) or err('Please call back later');
+    mysql_set_charset('utf8');
 }
 
 function err($x)
@@ -69,16 +71,19 @@ function warn($x)
 
 function benc_resp_raw($x)
 {
-    header( "Content-Type: text/plain" );
-    header( "Pragma: no-cache" );
+    header('Content-Type: text/plain; charset=UTF-8');
+    header('Cache-Control: no-store, no-cache, max-age=0');
+    header('Pragma: no-cache');
 
-    if ( $_SERVER['HTTP_ACCEPT_ENCODING'] == 'gzip' )
+    $accept_encoding = isset($_SERVER['HTTP_ACCEPT_ENCODING']) && is_string($_SERVER['HTTP_ACCEPT_ENCODING'])
+      ? $_SERVER['HTTP_ACCEPT_ENCODING'] : '';
+    if (preg_match('/(?:^|,)\\s*gzip(?:\\s*;|\\s*,|\\s*$)/i', $accept_encoding))
     {
-        header( "Content-Encoding: gzip" );
-        echo gzencode( $x, 9, FORCE_GZIP );
+        header('Content-Encoding: gzip');
+        echo gzencode($x, 6, FORCE_GZIP);
     }
     else
-        echo $x ;
+        echo $x;
 }
 
 function hash_where($name, $hash) {
@@ -115,21 +120,21 @@ function portblacklisted($port)
 /////////////////////// FUNCTION DEFS END ///////////////////////////////
 
 $parts = array();
-if( !isset($_GET['passkey']) OR !preg_match('/^[0-9a-fA-F]{32}$/i', $_GET['passkey'], $parts) ) 
+if (!isset($_GET['passkey']) || !is_string($_GET['passkey']) || !preg_match('/\A[0-9a-fA-F]{32}\z/i', $_GET['passkey'], $parts))
 		err("Invalid Passkey");
 	else
 		$GLOBALS['passkey'] = $parts[0];
 		
-foreach (array("info_hash","peer_id","event","ip","localip") as $x) 
+foreach (array('info_hash', 'peer_id', 'event', 'ip', 'localip') as $x)
 {
-if(isset($_GET["$x"]))
-$GLOBALS[$x] = "" . $_GET[$x];
+  if (isset($_GET[$x]) && is_string($_GET[$x]))
+    $GLOBALS[$x] = $_GET[$x];
 }
 
 foreach (array('passkey', 'info_hash', 'peer_id', 'port', 'downloaded', 'uploaded', 'left') as $x)
 {
-    if (!isset($_GET[$x]))
-        err("Missing key: $x");
+    if (!isset($_GET[$x]) || !is_string($_GET[$x]))
+        err("Missing or invalid key: $x");
 }
 
 foreach (array('port', 'downloaded', 'uploaded', 'left') as $x)
@@ -149,7 +154,10 @@ unset($x);
 
 $info_hash = bin2hex($info_hash);
 
-$ip = $_SERVER['REMOTE_ADDR'];
+$ip = isset($_SERVER['REMOTE_ADDR']) && filter_var($_SERVER['REMOTE_ADDR'], FILTER_VALIDATE_IP)
+  ? $_SERVER['REMOTE_ADDR'] : '';
+if ($ip === '')
+  err('Invalid client address');
 
 $port = 0 + $port;
 $downloaded = 0 + $downloaded;
