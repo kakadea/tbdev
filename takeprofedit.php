@@ -43,11 +43,14 @@ loggedinorreturn();
         stderr("Update failed!", $lang['takeprofedit_pass_not_match']);
       
       $secret = mksecret();
-
-      $passhash = make_passhash( $secret, md5($chpassword) );
+      $passhash = make_passhash($secret, md5($chpassword));
+      $modernpasshash = password_hash($chpassword, PASSWORD_DEFAULT);
+      if ($modernpasshash === false)
+        stderr("Update failed!", $lang['takeprofedit_pass_not_match']);
 
       $updateset[] = "secret = " . sqlesc($secret);
       $updateset[] = "passhash = " . sqlesc($passhash);
+      $updateset[] = "password_hash = " . sqlesc($modernpasshash);
       logincookie($CURUSER['id'], $passhash);
     }
 
