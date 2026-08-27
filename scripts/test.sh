@@ -11,6 +11,7 @@ done
 sh -n docker/entrypoint.sh
 php tests/security_auth_test.php
 php tests/bencode_test.php
+php tests/captcha_test.php
 git diff --check
 
 echo "Static and security checks passed."

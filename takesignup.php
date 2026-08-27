@@ -19,6 +19,7 @@
 
 require_once "include/bittorrent.php";
 require_once "include/password_functions.php";
+require_once __DIR__ . '/captcha/functions.php';
 
 security_session_start();
 if (!security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'signup'))
@@ -60,7 +61,7 @@ dbconn();
     
     if ($TBDEV['captcha'])
     {
-      if (!isset($_POST['captcha']) || empty($_POST['captcha']) || empty($_SESSION['captcha_id']) || $_SESSION['captcha_id'] !== strtoupper((string) $_POST['captcha']))
+      if (!captcha_validate_answer(isset($_POST['captcha']) ? $_POST['captcha'] : null) || !isset($_SESSION['captcha_time']) || TIME_NOW - (int) $_SESSION['captcha_time'] < 10)
       {
           header('Location: signup.php');
           exit();

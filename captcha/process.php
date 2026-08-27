@@ -1,30 +1,14 @@
 <?php
-/*
-+------------------------------------------------
-|   TBDev.net BitTorrent Tracker PHP
-|   =============================================
-|   by CoLdFuSiOn
-|   (c) 2003 - 2011 TBDev.Net
-|   http://www.tbdev.net
-|   =============================================
-|   svn: http://sourceforge.net/projects/tbdevnet/
-|   Licence Info: GPL
-+------------------------------------------------
-|   $Date$
-|   $Revision$
-|   $Author$
-|   $URL$
-+------------------------------------------------
-*/
-// Begin the session
-session_start();
 
-// To avoid case conflicts, make the input uppercase and check against the session value
-// If it's correct, echo '1' as a string
-if(strtoupper($_GET['captcha']) == $_SESSION['captcha_id'])
-	echo '1';
-// Else echo '0' as a string
-else
-	echo '0';
+require_once __DIR__ . '/functions.php';
 
-?>
+if ($_SERVER['REQUEST_METHOD'] !== 'POST')
+{
+    http_response_code(405);
+    header('Allow: POST');
+    exit('Method not allowed.');
+}
+
+header('Content-Type: text/plain; charset=UTF-8');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+echo captcha_validate_answer(isset($_POST['captcha']) ? $_POST['captcha'] : null) ? '1' : '0';

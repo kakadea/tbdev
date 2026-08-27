@@ -25,25 +25,39 @@ if ( ! defined( 'IN_TBDEV_ADMIN' ) )
 
 require_once "include/user_functions.php";
 
+security_session_start();
+$delacct_csrf = security_csrf_token('admin-delacct');
+
     $lang = array_merge( $lang, load_language('ad_delacct') );
     
     if( $CURUSER['class'] < UC_ADMINISTRATOR )
       stderr($lang['text_error'], $lang['text_unable']);
     
-    if ($_SERVER["REQUEST_METHOD"] == "POST")
+    if ($_SERVER['REQUEST_METHOD'] === 'POST')
     {
-      $username = trim($_POST["username"]);
-      //$password = trim($_POST["password"]);
-      if (!$username)
-        stderr("{$lang['text_error']}", "{$lang['text_please']}");
+      if (!security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'admin-delacct'))
+      {
+        http_response_code(400);
+        exit('Invalid account deletion request.');
+      }
+      if (!security_rate_limit('admin-delacct', security_client_identity() . '|' . (int) $CURUSER['id'], 5, 900))
+      {
+        http_response_code(429);
+        exit('Too many account deletion requests.');
+      }
+      $username = isset($_POST['username']) && is_string($_POST['username']) ? trim($_POST['username']) : '';
+      if ($username === '' || strlen($username) > 32)
+        stderr($lang['text_error'], $lang['text_please']);
         
       $res = @mysql_query("SELECT * FROM users WHERE username=" . sqlesc($username) ) or sqlerr();
       if (mysql_num_rows($res) != 1)
         stderr("{$lang['text_error']}", "{$lang['text_bad']}");
       $arr = mysql_fetch_assoc($res);
 
-      $id = $arr['id'];
-      $res = @mysql_query("DELETE FROM users WHERE id=$id") or sqlerr();
+      $id = (int) $arr['id'];
+      if ($id === (int) $CURUSER['id'])
+        stderr($lang['text_error'], 'The current administrator cannot delete their own account.');
+      $res = mysql_query('DELETE FROM users WHERE id = ' . $id . ' LIMIT 1') or sqlerr(__FILE__, __LINE__);
       if (mysql_affected_rows() != 1)
         stderr("{$lang['text_error']}", "{$lang['text_unable']}");
         
@@ -57,6 +71,7 @@ require_once "include/user_functions.php";
                          <div class='cblock-header'>{$lang['text_delete']}</div>
                          <div class='cblock-content'>
                              <form method='post' action='admin.php?action=delacct'>
+                                  <input type='hidden' name='csrf_token' value='{$delacct_csrf}' />
                                   <table border='1' cellspacing='0' cellpadding='5'>
                                         <tr>
                                            <td class='rowhead'>{$lang['table_username']}</td>

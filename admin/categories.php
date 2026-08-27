@@ -25,9 +25,11 @@ if ( ! defined( 'IN_TBDEV_ADMIN' ) )
 
 require_once "include/user_functions.php";
 
-    $params = array_merge( $_GET, $_POST );
+security_session_start();
+$categories_csrf = security_csrf_token('admin-categories');
 
-    $params['mode'] = isset($params['mode']) ? $params['mode'] : '';
+    $params = array_merge($_GET, $_POST);
+    $params['mode'] = isset($params['mode']) && is_string($params['mode']) ? $params['mode'] : '';
     
     switch($params['mode'])
     {
@@ -69,22 +71,40 @@ require_once "include/user_functions.php";
     }
 
 
+function categories_require_csrf()
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'admin-categories'))
+    {
+      http_response_code(400);
+      exit('Invalid category administration request.');
+    }
+}
+
+function categories_validate_text($value, $max_length)
+{
+    if (!is_string($value))
+      return false;
+    $value = trim($value);
+    if ($value === '' || strlen($value) > $max_length || preg_match('/[\\x00-\\x1F\\x7F]/', $value))
+      return false;
+    return $value;
+}
+
+function categories_validate_image($value)
+{
+    if (!is_string($value) || !preg_match('/\Acat_[A-Za-z0-9_]+\.(?:gif|jpg|jpeg|png)\z/i', $value))
+      return false;
+    return $value;
+}
+
 function move_cat() {
-    
-    global $TBDEV, $params;
-    
-    if( ( !isset($params['id']) OR !is_valid_id($params['id']) ) OR ( !isset($params['new_cat_id']) OR !is_valid_id($params['new_cat_id']) ) )
-    {
-      stderr( 'MOD ERROR', 'No category ID selected' );
-    }
-    
-    if( !is_valid_id($params['new_cat_id']) OR ($params['id'] == $params['new_cat_id']) )
-    {
-      stderr( 'MOD ERROR', 'You can not move torrents into the same category' );
-    }
-    
-    $old_cat_id = intval($params['id']);
-    $new_cat_id = intval($params['new_cat_id']);
+    categories_require_csrf();
+    global $TBDEV;
+
+    $old_cat_id = isset($_POST['id']) && !is_array($_POST['id']) ? (int) $_POST['id'] : 0;
+    $new_cat_id = isset($_POST['new_cat_id']) && !is_array($_POST['new_cat_id']) ? (int) $_POST['new_cat_id'] : 0;
+    if (!is_valid_id($old_cat_id) || !is_valid_id($new_cat_id) || $old_cat_id === $new_cat_id)
+      stderr('MOD ERROR', 'Invalid category selection');
     
     // make sure both categories exist
     $q = @mysql_query( "SELECT id FROM categories WHERE id IN($old_cat_id, $new_cat_id)" );
@@ -111,7 +131,7 @@ function move_cat() {
 
 function move_cat_form() {
 
-    global $params;
+    global $params, $categories_csrf;
     
     if( !isset($params['id']) OR !is_valid_id($params['id']) )
     {
@@ -156,7 +176,8 @@ function move_cat_form() {
 
     $htmlout .= "            <form action='admin.php?action=categories' method='post'>
                                   <input type='hidden' name='mode' value='takemove_cat' />
-                                  <input type='hidden' name='id' value='{$r['id']}' />
+                                  <input type='hidden' name='csrf_token' value='{$categories_csrf}' />
+                                  <input type='hidden' name='id' value='" . (int) $r['id'] . "' />
 
                                   <table style='text-align:center; width:80%;' cellspacing='2' cellpadding='4px'>
                                         <tr>
@@ -187,22 +208,18 @@ function move_cat_form() {
 
 function add_cat() {
 
-    global $TBDEV, $params;
-    
-    foreach( array( 'new_cat_name', 'new_cat_desc', 'new_cat_image') as $x )
-    {
-      if( !isset($params[ $x ]) OR empty($params[ $x ]) )
-        stderr( 'MOD ERROR', 'Some fields were left blank' );
-    }
-    
-    if ( !preg_match( "/^cat_[A-Za-z0-9_]+\.(?:gif|jpg|jpeg|png)$/i", $params['new_cat_image'] ) )
-    {
-					stderr( 'MOD ERROR', 'File name is not allowed' );
-    }
-    
-    $cat_name = sqlesc($params['new_cat_name']);
-    $cat_desc = sqlesc($params['new_cat_desc']);
-    $cat_image = sqlesc($params['new_cat_image']);
+    categories_require_csrf();
+    global $TBDEV;
+
+    $cat_name_raw = isset($_POST['new_cat_name']) ? categories_validate_text($_POST['new_cat_name'], 100) : false;
+    $cat_desc_raw = isset($_POST['new_cat_desc']) ? categories_validate_text($_POST['new_cat_desc'], 255) : false;
+    $cat_image_raw = isset($_POST['new_cat_image']) ? categories_validate_image($_POST['new_cat_image']) : false;
+    if ($cat_name_raw === false || $cat_desc_raw === false || $cat_image_raw === false)
+      stderr('MOD ERROR', 'Invalid category data');
+
+    $cat_name = sqlesc($cat_name_raw);
+    $cat_desc = sqlesc($cat_desc_raw);
+    $cat_image = sqlesc($cat_image_raw);
     
     @mysql_query( "INSERT INTO categories (name, cat_desc, image)
                   VALUES($cat_name, $cat_desc, $cat_image)" );
@@ -219,14 +236,14 @@ function add_cat() {
 
 function delete_cat() {
 
-    global $TBDEV, $params;
-    
-    if( !isset($params['id']) OR !is_valid_id($params['id']) )
-    {
-      stderr( 'MOD ERROR', 'No category ID selected' );
-    }
-    
-    $q = @mysql_query( "SELECT * FROM categories WHERE id = ".intval($params['id']) );
+    categories_require_csrf();
+    global $TBDEV;
+
+    $category_id = isset($_POST['id']) && !is_array($_POST['id']) ? (int) $_POST['id'] : 0;
+    if (!is_valid_id($category_id))
+      stderr('MOD ERROR', 'No category ID selected');
+
+    $q = mysql_query('SELECT * FROM categories WHERE id = ' . (int) $category_id) or sqlerr(__FILE__, __LINE__);
     
     if( false == mysql_num_rows($q) )
     {
@@ -235,16 +252,12 @@ function delete_cat() {
     
     $r = mysql_fetch_assoc($q);
     
-    $old_cat_id = intval($r['id']);
-    
-    if( isset($params['new_cat_id']) )
+    $old_cat_id = (int) $r['id'];
+    if (isset($_POST['new_cat_id']))
     {
-      if( !is_valid_id($params['new_cat_id']) OR ($r['id'] == $params['new_cat_id']) )
-      {
-        stderr( 'MOD ERROR', 'That category does not exist or has been deleted' );
-      }
-      
-      $new_cat_id = intval($params['new_cat_id']);
+      $new_cat_id = isset($_POST['new_cat_id']) && !is_array($_POST['new_cat_id']) ? (int) $_POST['new_cat_id'] : 0;
+      if (!is_valid_id($new_cat_id) || $old_cat_id === $new_cat_id)
+        stderr('MOD ERROR', 'That category does not exist or has been deleted');
       
       //make sure category isn't out of range before moving torrents! else orphans!
       $q = @mysql_query( "SELECT COUNT(*) FROM categories WHERE id = $new_cat_id" );
@@ -276,7 +289,7 @@ function delete_cat() {
 
 function delete_cat_form() {
 
-    global $params;
+    global $params, $categories_csrf;
     
     if( !isset($params['id']) OR !is_valid_id($params['id']) )
     {
@@ -326,7 +339,8 @@ function delete_cat_form() {
 
     $htmlout .= "            <form action='admin.php?action=categories' method='post'>
                                   <input type='hidden' name='mode' value='takedel_cat' />
-                                  <input type='hidden' name='id' value='{$r['id']}' />
+                                  <input type='hidden' name='csrf_token' value='{$categories_csrf}' />
+                                  <input type='hidden' name='id' value='" . (int) $r['id'] . "' />
                                   <table style='text-align:center; width:80%;'cellspacing='2' cellpadding='2'>
                                         <tr>
                                            <td colspan='2' class='colhead'>You are about to delete category: ".htmlsafechars($r['name'])."</td>
@@ -361,28 +375,20 @@ function delete_cat_form() {
 
 function edit_cat() {
 
-    global $TBDEV, $params;
-    
-    if( !isset($params['id']) OR !is_valid_id($params['id']) )
-    {
-      stderr( 'MOD ERROR', 'No category ID selected' );
-    }
-    
-    foreach( array( 'cat_name', 'cat_desc', 'cat_image') as $x )
-    {
-      if( !isset($params[ $x ]) OR empty($params[ $x ]) )
-        stderr( 'MOD ERROR', 'Some fields were left blank' );
-    }
-    
-    if ( !preg_match( "/^cat_[A-Za-z0-9_]+\.(?:gif|jpg|jpeg|png)$/i", $params['cat_image'] ) )
-    {
-					stderr( 'MOD ERROR', 'File name is not allowed' );
-    }
-    
-    $cat_name = sqlesc($params['cat_name']);
-    $cat_desc = sqlesc($params['cat_desc']);
-    $cat_image = sqlesc($params['cat_image']);
-    $cat_id = intval($params['id']);
+    categories_require_csrf();
+    global $TBDEV;
+
+    $cat_id = isset($_POST['id']) && !is_array($_POST['id']) ? (int) $_POST['id'] : 0;
+    if (!is_valid_id($cat_id))
+      stderr('MOD ERROR', 'No category ID selected');
+    $cat_name_raw = isset($_POST['cat_name']) ? categories_validate_text($_POST['cat_name'], 100) : false;
+    $cat_desc_raw = isset($_POST['cat_desc']) ? categories_validate_text($_POST['cat_desc'], 255) : false;
+    $cat_image_raw = isset($_POST['cat_image']) ? categories_validate_image($_POST['cat_image']) : false;
+    if ($cat_name_raw === false || $cat_desc_raw === false || $cat_image_raw === false)
+      stderr('MOD ERROR', 'Invalid category data');
+    $cat_name = sqlesc($cat_name_raw);
+    $cat_desc = sqlesc($cat_desc_raw);
+    $cat_image = sqlesc($cat_image_raw);
     
     @mysql_query( "UPDATE categories SET name = $cat_name, cat_desc = $cat_desc, image = $cat_image WHERE id = $cat_id" );
       
@@ -400,7 +406,7 @@ function edit_cat() {
 
 function edit_cat_form() {
 
-    global $TBDEV, $params;
+    global $TBDEV, $params, $categories_csrf;
     
     if( !isset($params['id']) OR !is_valid_id($params['id']) )
     {
@@ -469,7 +475,8 @@ function edit_cat_form() {
 
     $htmlout .= "            <form action='admin.php?action=categories' method='post'>
                                   <input type='hidden' name='mode' value='takeedit_cat' />
-                                  <input type='hidden' name='id' value='{$r['id']}' />
+                                  <input type='hidden' name='csrf_token' value='{$categories_csrf}' />
+                                  <input type='hidden' name='id' value='" . (int) $r['id'] . "' />
                                   <table style='text-align:center; width:80%;' cellspacing='2' cellpadding='2'>
                                         <tr>
                                            <td style='text-align:right;'>New Cat Name:</td>
@@ -496,7 +503,7 @@ function edit_cat_form() {
 
 function show_categories() {
     
-    global $TBDEV;
+    global $TBDEV, $categories_csrf;
     
     $htmlout = '';
 
@@ -551,6 +558,7 @@ function show_categories() {
 
     $htmlout .= "            <form action='admin.php?action=categories' method='post'>
                                   <input type='hidden' name='mode' value='takeadd_cat' />
+                                  <input type='hidden' name='csrf_token' value='{$categories_csrf}' />
                                   <table style='width:80%; border:1px solid #000;' cellspacing='2' cellpadding='2'>
                                         <tr>
                                            <td class='colhead' colspan='2' style='text-align:center;'>
@@ -603,27 +611,33 @@ function show_categories() {
     }
     else
     {
-      while($row = mysql_fetch_assoc($query))
+      while ($row = mysql_fetch_assoc($query))
       {
-        $cat_image = file_exists($TBDEV['pic_base_url'].'caticons/'.$row['image']) ? "<img src='{$TBDEV['pic_base_url']}caticons/{$row['image']}' alt='{$row['id']}' />" : "No Image";
+        $category_id = (int) $row['id'];
+        $category_name = htmlsafechars($row['name']);
+        $category_description = htmlsafechars($row['cat_desc']);
+        $category_image = categories_validate_image($row['image']);
+        $cat_image = $category_image !== false && is_file($TBDEV['pic_base_url'] . 'caticons/' . $category_image)
+          ? "<img src='" . htmlsafechars($TBDEV['pic_base_url'] . 'caticons/' . $category_image) . "' alt='Category {$category_id}' />"
+          : 'No Image';
 
         $htmlout .= "                 <tr>
-                                         <td style='height:48px; width:60px;'><b>ID({$row['id']})</b></td>
-                                         <td style='width:120px;'>{$row['name']}</td>
-                                         <td style='width:250px;'>{$row['cat_desc']}</td>
-                                         <td style='text-align:center; width:45px;'>$cat_image</td>
+                                         <td style='height:48px; width:60px;'><b>ID({$category_id})</b></td>
+                                         <td style='width:120px;'>{$category_name}</td>
+                                         <td style='width:250px;'>{$category_description}</td>
+                                         <td style='text-align:center; width:45px;'>{$cat_image}</td>
                                          <td style='text-align:center; width:18px;'>
-                                            <a href='admin.php?action=categories&amp;mode=edit_cat&amp;id={$row['id']}'>
+                                            <a href='admin.php?action=categories&amp;mode=edit_cat&amp;id={$category_id}'>
                                               <img src='{$TBDEV['pic_base_url']}aff_tick.gif' alt='Edit Category' title='Edit' width='12' height='12' />
                                             </a>
                                          </td>
                                          <td style='text-align:center; width:18px;'>
-                                            <a href='admin.php?action=categories&amp;mode=del_cat&amp;id={$row['id']}'>
+                                            <a href='admin.php?action=categories&amp;mode=del_cat&amp;id={$category_id}'>
                                               <img src='{$TBDEV['pic_base_url']}aff_cross.gif' alt='Delete Category' title='Delete' width='12' height='12' />
                                             </a>
                                          </td>
                                          <td style='text-align:center; width:18px;'>
-                                            <a href='admin.php?action=categories&amp;mode=move_cat&amp;id={$row['id']}'>
+                                            <a href='admin.php?action=categories&amp;mode=move_cat&amp;id={$category_id}'>
                                               <img src='{$TBDEV['pic_base_url']}plus.gif' alt='Move Category' title='Move' width='12' height='12' />
                                             </a>
                                          </td>

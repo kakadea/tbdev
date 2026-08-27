@@ -19,6 +19,7 @@
   require_once "include/bittorrent.php";
   require_once "include/user_functions.php";
   require_once "include/password_functions.php";
+  require_once __DIR__ . '/captcha/functions.php';
 
   ini_set('session.use_trans_sid', '0');
   if (session_status() !== PHP_SESSION_ACTIVE)
@@ -113,7 +114,7 @@
 
     if ($TBDEV['captcha'])
     {
-      if (empty($_POST['captcha']) || empty($_SESSION['captcha_id']) || $_SESSION['captcha_id'] !== strtoupper((string) $_POST['captcha']))
+      if (!captcha_validate_answer(isset($_POST['captcha']) ? $_POST['captcha'] : null) || !isset($_SESSION['captcha_time']) || TIME_NOW - (int) $_SESSION['captcha_time'] < 10)
         stderr($lang['stderr_errorhead'], 'Invalid captcha. Please try again.');
       unset($_SESSION['captcha_id'], $_SESSION['captcha_time']);
     }

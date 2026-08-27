@@ -112,6 +112,6 @@ Em produção, o rollback só pode ocorrer após confirmar saúde do container, 
 
 ## Checklist de bloqueio para produção
 
-Não fazer cutover enquanto qualquer item abaixo estiver pendente: build reproduzível com digest registrado; `docker compose config` sem segredos; schema e migrações testados em cópia; backup e restauração de banco e arquivos verificados; smoke tests web e announce/scrape aprovados; cache e uploads fora da imagem; `install/` removido ou bloqueado; prepared statements nos módulos críticos; CSRF, rate limiting, sessões e redirects revisados; logs e limites monitorados; e plano de rollback ensaiado.
+Não fazer cutover enquanto qualquer item abaixo estiver pendente: build reproduzível com digest registrado; `docker compose config` sem segredos; schema e migrações testados em cópia; backup e restauração de banco e arquivos verificados; smoke tests web e announce/scrape aprovados; cache e uploads fora da imagem; instalador legado ausente do checkout e da imagem; prepared statements nos módulos críticos; CSRF, rate limiting, sessões e redirects revisados; logs e limites monitorados; e plano de rollback ensaiado.
 
 **Estado nesta etapa:** somente código, documentação e testes foram alterados no sandbox e publicados na branch `work/modernize-tbdev`. Nenhum container TBDev foi criado no VPS compartilhado, nenhum domínio TBDev foi configurado e nenhuma base ou arquivo produtivo foi tocado.

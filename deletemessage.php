@@ -1,63 +1,50 @@
 <?php
-/*
-+------------------------------------------------
-|   TBDev.net BitTorrent Tracker PHP
-|   =============================================
-|   by CoLdFuSiOn
-|   (c) 2003 - 2011 TBDev.Net
-|   http://www.tbdev.net
-|   =============================================
-|   svn: http://sourceforge.net/projects/tbdevnet/
-|   Licence Info: GPL
-+------------------------------------------------
-|   $Date$
-|   $Revision$
-|   $Author$
-|   $URL$
-+------------------------------------------------
-*/
-  require "include/bittorrent.php";
-  $id = 0+$_GET["id"];
-  if (!is_numeric($id) || $id < 1 || floor($id) != $id)
-    die;
 
-  $type = $_GET["type"];
+require_once __DIR__ . '/include/bittorrent.php';
+require_once __DIR__ . '/include/security.php';
 
-  dbconn(false);
-  
-  loggedinorreturn();
-  
-  $lang = array_merge( load_language('global'), load_language('deletemessage') );
-  
-  if ($type == 'in')
-  {
-  	// make sure message is in CURUSER's Inbox
-	  $res = mysql_query("SELECT receiver, location FROM messages WHERE id=" . sqlesc($id)) or die("barf");
-	  $arr = mysql_fetch_assoc($res) or die("{$lang['deletemessage_bad_id']}");
-	  if ($arr["receiver"] != $CURUSER["id"])
-	    die("{$lang['deletemessage_dont_do']}");
-    if ($arr["location"] == 'in')
-	  	mysql_query("DELETE FROM messages WHERE id=" . sqlesc($id)) or die("{$lang['deletemessage_code1']}");
-    else if ($arr["location"] == 'both')
-			mysql_query("UPDATE messages SET location = 'out' WHERE id=" . sqlesc($id)) or die("{$lang['deletemessage_code2']}");
-    else
-    	die("{$lang['deletemessage_not_inbox']}");
-  }
-	elseif ($type == 'out')
-  {
-   	// make sure message is in CURUSER's Sentbox
-	  $res = mysql_query("SELECT sender, location FROM messages WHERE id=" . sqlesc($id)) or die("barf");
-	  $arr = mysql_fetch_assoc($res) or die("{$lang['deletemessage_bad_id']}");
-	  if ($arr["sender"] != $CURUSER["id"])
-	    die("{$lang['deletemessage_dont_do']}");
-    if ($arr["location"] == 'out')
-	  	mysql_query("DELETE FROM messages WHERE id=" . sqlesc($id)) or die("{$lang['deletemessage_code3']}");
-    else if ($arr["location"] == 'both')
-			mysql_query("UPDATE messages SET location = 'in' WHERE id=" . sqlesc($id)) or die("{$lang['deletemessage_code4']}");
-    else
-    	die("{$lang['deletemessage_sentbox']}");
-  }
-  else
-  	die("{$lang['deletemessage_unknown']}");
-  header("Location: {$TBDEV['baseurl']}/inbox.php".($type == 'out'?"?out=1":""));
-?>
+security_session_start();
+dbconn(false);
+loggedinorreturn();
+$lang = array_merge(load_language('global'), load_language('deletemessage'));
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'messages'))
+{
+    http_response_code(400);
+    exit('Invalid message deletion request.');
+}
+if (!security_rate_limit('message-delete-legacy', security_client_identity() . '|' . (int) $CURUSER['id'], 30, 300))
+{
+    http_response_code(429);
+    exit('Too many message deletion requests.');
+}
+
+$id = isset($_POST['id']) && !is_array($_POST['id']) && preg_match('/\A\d+\z/', (string) $_POST['id']) ? (int) $_POST['id'] : 0;
+$type = isset($_POST['type']) && is_string($_POST['type']) ? $_POST['type'] : '';
+if (!is_valid_id($id) || !in_array($type, array('in', 'out'), true))
+{
+    http_response_code(400);
+    exit($lang['deletemessage_unknown']);
+}
+
+$res = mysql_query('SELECT receiver, sender, location FROM messages WHERE id = ' . (int) $id . ' LIMIT 1') or sqlerr(__FILE__, __LINE__);
+$message = mysql_fetch_assoc($res);
+if (!$message)
+    exit($lang['deletemessage_bad_id']);
+
+$owner_field = $type === 'in' ? 'receiver' : 'sender';
+if ((int) $message[$owner_field] !== (int) $CURUSER['id'])
+    exit($lang['deletemessage_dont_do']);
+
+$location = (string) $message['location'];
+if ($type === 'in' && $location === 'in')
+    mysql_query('DELETE FROM messages WHERE id = ' . (int) $id . ' LIMIT 1') or sqlerr(__FILE__, __LINE__);
+elseif ($type === 'out' && $location === 'out')
+    mysql_query('DELETE FROM messages WHERE id = ' . (int) $id . ' LIMIT 1') or sqlerr(__FILE__, __LINE__);
+elseif ($location === 'both')
+    mysql_query("UPDATE messages SET location = '" . ($type === 'in' ? 'out' : 'in') . "' WHERE id = " . (int) $id . ' LIMIT 1') or sqlerr(__FILE__, __LINE__);
+else
+    exit($type === 'in' ? $lang['deletemessage_not_inbox'] : $lang['deletemessage_sentbox']);
+
+header('Location: ' . $TBDEV['baseurl'] . '/messages.php' . ($type === 'out' ? '?out=1' : ''));
+exit;

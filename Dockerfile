@@ -10,8 +10,11 @@ ENV APACHE_DOCUMENT_ROOT=/var/www/html \
     TZ=UTC
 
 RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends libfreetype6-dev libjpeg62-turbo-dev libpng-dev; \
     a2enmod rewrite headers expires; \
-    docker-php-ext-install mysqli pdo_mysql; \
+    docker-php-ext-configure gd --with-freetype --with-jpeg; \
+    docker-php-ext-install mysqli pdo_mysql gd; \
     rm -rf /var/lib/apt/lists/*
 
 COPY docker/php.ini /usr/local/etc/php/conf.d/zz-tbdev.ini

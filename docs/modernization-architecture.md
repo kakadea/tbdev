@@ -79,7 +79,7 @@ Before any production cutover, the database and torrent storage must have a veri
 
 ## Security boundaries
 
-The installer directory will not be reachable in production. The web container will run without privileged mode, will not mount the Docker socket, will not expose the database port and will have no write access to the application source tree. Write access is limited to the runtime data directories.
+The legacy web installer has been removed from the executable checkout. The web container will run without privileged mode, will not mount the Docker socket, will not expose the database port and will have no write access to the application source tree. Write access is limited to the runtime data directories.
 
 The first security pass prioritizes session termination after access checks, output encoding, CSRF protection for state-changing forms, prepared SQL statements, upload validation, SSRF-safe avatar handling, host allowlisting, secure cookies and rate limits for login, signup, recovery and announce. Historical vulnerabilities from `reputation_settings.php`, `takeprofedit.php`, `email-gateway.php`, `bitbucket-upload.php`, `login.php`, `redir.php` and `forums.php` become regression-test cases.
 

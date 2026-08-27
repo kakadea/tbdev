@@ -1,78 +1,55 @@
-// CREATING THE REQUEST
+(function () {
+  'use strict';
 
-function createRequestObject()
-{
-	try
-	{
-		xmlhttp = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject("Microsoft.XMLHTTP");
-	}
-	catch(e)
-	{
-		alert('Sorry, but your browser doesn\'t support XMLHttpRequest.');
-	}
-	return xmlhttp;
-}
+  function request(url, options) {
+    return fetch(url, Object.assign({
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { 'Cache-Control': 'no-cache' }
+    }, options || {}));
+  }
 
-var http = createRequestObject();
-var sess = createRequestObject();
+  window.refreshimg = function () {
+    var imageContainer = document.getElementById('captchaimage');
+    if (!imageContainer) return;
 
-// IMAGE REFRESHING
+    request('captcha/newsession.php', { method: 'POST' })
+      .then(function (response) {
+        if (!response.ok && response.status !== 204) throw new Error('challenge');
+        return request('captcha/image_req.php', { method: 'GET' });
+      })
+      .then(function (response) {
+        if (!response.ok) throw new Error('image');
+        return response.text();
+      })
+      .then(function (html) {
+        imageContainer.innerHTML = html;
+      })
+      .catch(function () {
+        imageContainer.textContent = 'Unable to refresh CAPTCHA.';
+      });
+  };
 
-function refreshimg()
-{
-	var url = 'captcha/image_req.php';
-	dorefresh(url, displayimg);
-}
+  window.check = function () {
+    var input = document.getElementById('captcha');
+    if (!input) return;
 
-function dorefresh(url, callback)
-{
-	sess.open('POST', 'newsession.php', true);
-	sess.send(null);
-	http.open('POST', url, true);
-	http.onreadystatechange = displayimg;
-	http.send(null);
-}
-
-function displayimg()
-{
-	if(http.readyState == 4)
-	{
-		var showimage = http.responseText;
-		document.getElementById('captchaimage').innerHTML = showimage;
-	}
-}
-
-// SUBMISSION
-
-function check()
-{
-	var submission = document.getElementById('captcha').value;
-	var url = 'captcha/process.php?captcha=' + submission;
-	docheck(url, displaycheck);
-}
-
-function docheck(url, callback)
-{
-	http.open('GET', url, true);
-	http.onreadystatechange = displaycheck;
-	http.send(null);
-}
-
-function displaycheck()
-{
-	if(http.readyState == 4)
-	{
-		var showcheck = http.responseText;
-		if(showcheck == '1')
-		{
-			document.getElementById('captcha').style.border = '1px solid #49c24f';
-			document.getElementById('captcha').style.background = '#bcffbf';
-		}
-		if(showcheck == '0')
-		{
-			document.getElementById('captcha').style.border = '1px solid #c24949';
-			document.getElementById('captcha').style.background = '#ffbcbc';
-
-		}
-	}
-}
+    var body = new URLSearchParams();
+    body.set('captcha', input.value);
+    request('captcha/process.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+      body: body.toString()
+    })
+      .then(function (response) { return response.text(); })
+      .then(function (result) {
+        var valid = result === '1';
+        input.style.border = valid ? '1px solid #49c24f' : '1px solid #c24949';
+        input.style.background = valid ? '#bcffbf' : '#ffbcbc';
+      })
+      .catch(function () {
+        input.style.border = '1px solid #c24949';
+        input.style.background = '#ffbcbc';
+      });
+  };
+}());

@@ -32,7 +32,7 @@ Todos os arquivos versionados foram catalogados, tiveram tamanho/linhas/hash reg
 | Arquivos com entradas HTTP/cookies/arquivos | 83 |
 | Diferença entre `stg` e `origin/master` | Nenhuma no commit analisado |
 
-A maior parte do código está concentrada no PHP procedural. Os diretórios principais são `admin/`, `forums/`, `include/`, `install/`, `lang/`, `cache/`, `torrents/` e `logs/`; na raiz ficam os front controllers e handlers de upload, download, login, mensagens, usuários e protocolo do tracker.
+A maior parte do código está concentrada no PHP procedural. Os diretórios principais ativos são `admin/`, `forums/`, `include/`, `lang/`, `cache/`, `torrents/` e `logs/`; `captcha/` mantém os endpoints de desafio usados opcionalmente por autenticação, enquanto o payload JavaIRC foi removido. Na raiz ficam os front controllers e handlers de upload, download, login, mensagens, usuários e protocolo do tracker.
 
 ## 3. Grafo de arquitetura
 
@@ -118,7 +118,7 @@ O login usa cookies persistentes próprios, com prefixo configurável e hash de 
 
 ### 6.6. Instalador destrutivo exposto
 
-`install/index.php` aceita parâmetros web, pode criar banco, apagar tabelas existentes, sobrescrever `include/config.php` e `announce.php`, criar a conta SysOp e gravar `install.lock`. Mesmo com lock, o próprio instalador instrui a remoção do arquivo após o processo. Em qualquer implantação, o diretório `install/` deve ser removido ou bloqueado no servidor web; nunca deve ficar acessível em uma aplicação com dados reais.
+O instalador web legado foi removido do checkout executável. A análise histórica mostrou que `install/index.php` aceitava parâmetros web, podia criar banco, apagar tabelas existentes, sobrescrever `include/config.php` e `announce.php`, criar a conta SysOp com hash legado e depender de um lock removível. A instalação agora deve ocorrer somente por configuração de ambiente, schema SQL versionado e migrações explícitas, aplicados em banco descartável ou mediante procedimento de backup e aprovação.
 
 ### 6.7. Upload e arquivos
 
@@ -134,7 +134,7 @@ Há uso de `error_reporting(0)`, mensagens de erro diretamente derivadas do MySQ
 
 ## 7. O que não fazer ainda
 
-Não publicar esta branch diretamente no domínio produtivo, não apontar o instalador para o banco MariaDB existente, não executar `install/index.php`, não trocar a versão PHP global do usuário `cloud`, não conceder acesso de banco como root e não ativar o cleanup antes de corrigir e testar a função `deadtime` e as rotinas destrutivas.
+Não publicar esta branch diretamente no domínio produtivo, não aplicar schema ou migrações no MariaDB real sem backup e aprovação, não trocar a versão PHP global do usuário `cloud`, não conceder acesso de banco como root e não ativar o cleanup antes de corrigir e testar a função `deadtime` e as rotinas destrutivas.
 
 Também não devemos fazer uma “modernização” que reescreva todos os 205 arquivos de uma vez. Isso dificultaria rollback e poderia alterar contabilidade de peers, passkeys, ratio, permissões ou mensagens sem perceber.
 

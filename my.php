@@ -119,18 +119,10 @@ loggedinorreturn();
       $ss_sa[$ss_name] = $ss_id;
     }
     ksort($ss_sa);
-    reset($ss_sa);
-    while (list($ss_name, $ss_id) = each($ss_sa))
+    foreach ($ss_sa as $ss_name => $ss_id)
     {
-      if ($ss_id == $CURUSER["stylesheet"])
-      { 
-        $ss = " selected='selected'";
-      }
-      else
-      {
-        $ss = "";
-      }
-      $stylesheets .= "<option value='$ss_id'$ss>$ss_name</option>\n";
+      $ss = ($ss_id == $CURUSER['stylesheet']) ? " selected='selected'" : '';
+      $stylesheets .= "<option value='" . (int) $ss_id . "'{$ss}>" . htmlsafechars($ss_name) . "</option>\n";
     }
 
     $countries = "<option value='0'>---- {$lang['my_none']} ----</option>\n";
