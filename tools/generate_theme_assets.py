@@ -165,9 +165,39 @@ save_icon("default_avatar.gif", "avatar", (50, 50), PIC / "forumicons")
 save_icon("cat_test.gif", "new", (42, 42), PIC / "caticons")
 save_icon("cat_software.gif", "panel", (42, 42), PIC / "caticons")
 save_icon("cat_docs.gif", "read", (42, 42), PIC / "caticons")
+def save_smiley(name):
+    image = Image.new('RGBA', (24, 24), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    lower = name.lower()
+    face = (250, 207, 78, 255)
+    outline = (122, 83, 24, 255)
+    if any(token in lower for token in ('sad', 'cry', 'noexpression')):
+        face = (168, 207, 235, 255)
+    elif any(token in lower for token in ('angry', 'mad')):
+        face = (239, 120, 105, 255)
+    elif any(token in lower for token in ('cool', 'wub')):
+        face = (118, 190, 216, 255)
+    draw.ellipse((2, 2, 22, 22), fill=face, outline=outline, width=1)
+    draw.ellipse((7, 8, 9, 10), fill=(35, 45, 55, 255))
+    draw.ellipse((15, 8, 17, 10), fill=(35, 45, 55, 255))
+    if 'wink' in lower:
+        draw.line((15, 9, 18, 9), fill=(35, 45, 55, 255), width=1)
+    if any(token in lower for token in ('sad', 'cry', 'noexpression')):
+        draw.arc((7, 11, 17, 19), start=200, end=340, fill=(35, 45, 55, 255), width=1)
+    elif 'angry' in lower:
+        draw.line((6, 7, 10, 8), fill=(35, 45, 55, 255), width=1)
+        draw.line((14, 8, 18, 7), fill=(35, 45, 55, 255), width=1)
+        draw.line((8, 17, 16, 17), fill=(35, 45, 55, 255), width=1)
+    elif 'tongue' in lower:
+        draw.arc((7, 10, 17, 18), start=0, end=180, fill=(35, 45, 55, 255), width=1)
+        draw.ellipse((10, 16, 14, 20), fill=(224, 103, 113, 255), outline=(35, 45, 55, 255))
+    else:
+        draw.arc((7, 9, 17, 18), start=20, end=160, fill=(35, 45, 55, 255), width=1)
+    image.convert('P', palette=Image.Palette.ADAPTIVE).save(PIC / 'smilies' / name, optimize=True)
+
 emoticon_source = (ROOT / 'include' / 'emoticons.php').read_text(encoding='utf-8')
-for smiley in sorted(set(re.findall(r'=>\s*[\'\"]([^\'\"]+\.gif)', emoticon_source))):
-    save_icon(smiley, 'panel', (18, 18), PIC / 'smilies')
+for smiley in sorted(set(re.findall(r'=>\s*[\'"]([^\'"]+\.gif)', emoticon_source))):
+    save_smiley(smiley)
 
 # Prevent opendir() warnings in administrative screens even when no custom icons exist.
 for directory in (PIC / "caticons", PIC / "staff", PIC / "rep", PIC / "smilies", PIC / "forumicons"):

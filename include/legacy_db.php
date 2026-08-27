@@ -21,6 +21,35 @@ if (!defined('MYSQL_BOTH')) {
 
 $GLOBALS['TBDEV_DB_LINK'] = null;
 
+/**
+ * Resolve the client IPv4 behind the trusted local reverse proxy.
+ * Public proxy headers are ignored when the immediate peer is public.
+ */
+function tbdev_client_ip()
+{
+    $remote = isset($_SERVER['REMOTE_ADDR']) ? (string) $_SERVER['REMOTE_ADDR'] : '';
+    $remote_ip = filter_var($remote, FILTER_VALIDATE_IP);
+    $remote_is_public = $remote_ip !== false && filter_var($remote_ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false;
+
+    if (!$remote_is_public) {
+        $candidates = array();
+        if (isset($_SERVER['HTTP_CF_CONNECTING_IP']))
+            $candidates[] = $_SERVER['HTTP_CF_CONNECTING_IP'];
+        if (isset($_SERVER['HTTP_X_REAL_IP']))
+            $candidates[] = $_SERVER['HTTP_X_REAL_IP'];
+        if (isset($_SERVER['HTTP_X_FORWARDED_FOR']))
+            $candidates = array_merge($candidates, explode(',', (string) $_SERVER['HTTP_X_FORWARDED_FOR']));
+
+        foreach ($candidates as $candidate) {
+            $candidate = trim((string) $candidate);
+            if (filter_var($candidate, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false)
+                return $candidate;
+        }
+    }
+
+    return filter_var($remote, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false ? $remote : '';
+}
+
 function tbdev_db_link()
 {
     return $GLOBALS['TBDEV_DB_LINK'];

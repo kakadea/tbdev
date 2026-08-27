@@ -154,9 +154,8 @@ unset($x);
 
 $info_hash = bin2hex($info_hash);
 
-$ip = isset($_SERVER['REMOTE_ADDR']) && filter_var($_SERVER['REMOTE_ADDR'], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)
-  ? $_SERVER['REMOTE_ADDR'] : '';
-if ($ip === '')
+$ip = function_exists('tbdev_client_ip') ? tbdev_client_ip() : '';
+if ($ip === '' || filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false)
   err('This tracker laboratory currently requires an IPv4 client address.');
 
 $port = 0 + $port;

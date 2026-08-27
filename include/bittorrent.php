@@ -32,27 +32,10 @@ function validip($ip)
                   ) ? true : false;
 }
 
-// Patched function to detect REAL IP address if it's valid
+// Resolve the client address only through the trusted local proxy boundary.
 function getip() {
-   if (isset($_SERVER)) {
-     if (isset($_SERVER['HTTP_X_FORWARDED_FOR']) && validip($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-       $ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
-     } elseif (isset($_SERVER['HTTP_CLIENT_IP']) && validip($_SERVER['HTTP_CLIENT_IP'])) {
-       $ip = $_SERVER['HTTP_CLIENT_IP'];
-     } else {
-       $ip = $_SERVER['REMOTE_ADDR'];
-     }
-   } else {
-     if (getenv('HTTP_X_FORWARDED_FOR') && validip(getenv('HTTP_X_FORWARDED_FOR'))) {
-       $ip = getenv('HTTP_X_FORWARDED_FOR');
-     } elseif (getenv('HTTP_CLIENT_IP') && validip(getenv('HTTP_CLIENT_IP'))) {
-       $ip = getenv('HTTP_CLIENT_IP');
-     } else {
-       $ip = getenv('REMOTE_ADDR');
-     }
-   }
-
-   return $ip;
+   $ip = function_exists('tbdev_client_ip') ? tbdev_client_ip() : '';
+   return $ip !== '' ? $ip : '0.0.0.0';
  }
 
 function dbconn($autoclean = false)
