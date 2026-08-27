@@ -92,7 +92,7 @@ function userlogin() {
   $ip = getip();
   $nip = ip2long($ip);
 
-  require_once "cache/bans_cache.php";
+  require_once rtrim($TBDEV['cache_dir'], '/\\') . '/bans_cache.php';
   
   if(count($bans) > 0)
   {

@@ -52,7 +52,9 @@ function docleanup( $data ) {
   $stats['perc'] = number_format( $stats['leechers'] != 0 ?($stats['seeders']/$stats['leechers']) : 0, 2 );
   
   // temporary cache mechanism until the real deal
-  $fh = @fopen( ROOT_PATH.'/cache/stats.php', 'wb' );
+	global $TBDEV;
+	$stats_cache = rtrim($TBDEV['cache_dir'], '/\\') . '/stats.php';
+	$fh = @fopen($stats_cache, 'wb');
 		
   if( !$fh )
   {
@@ -73,7 +75,7 @@ function docleanup( $data ) {
   flock( $fh, LOCK_UN );
   fclose( $fh );
   
-  @chmod( ROOT_PATH.'/cache/stats.php', 0660 );
+	@chmod($stats_cache, 0660);
   // cache end temporary
   /*
   $stats = unserialize( stripslashes($stats) );

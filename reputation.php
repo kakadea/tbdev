@@ -37,7 +37,8 @@ $is_mod = ( $CURUSER['class'] >= UC_MODERATOR ) ? TRUE : FALSE;
 //$rep_repeat = 20;
 $closewindow = TRUE;
 
-require_once "cache/rep_settings_cache.php";
+require_once rtrim($TBDEV['cache_dir'], '/\\') . '/rep_settings_cache.php';
+$GVARS['g_rep_use'] = ($CURUSER['class'] > UC_USER);
 //print_r($GVARS);
 
 		if( ! $GVARS['rep_is_online'] )

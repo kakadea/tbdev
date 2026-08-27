@@ -4,6 +4,8 @@
 .env.*
 !.env.example
 cache/*.php
+!cache/timezones.php
+!cache/rep_cache.php
 torrents/*.torrent
 logs/*
 *.log

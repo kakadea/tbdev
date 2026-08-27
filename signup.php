@@ -17,7 +17,7 @@
 +------------------------------------------------
 */
 require_once "include/bittorrent.php";
-require_once ROOT_PATH."/cache/timezones.php";
+require_once rtrim($TBDEV['cache_dir'], '/\\') . '/timezones.php';
 
 security_session_start();
 $csrf = security_csrf_token('signup');

@@ -86,8 +86,11 @@ $TBDEV['app_env'] = strtolower(trim(tbdev_env('APP_ENV', 'production')));
 
 $torrent_dir_default = $TBDEV['app_env'] === 'production' ? '' : ROOT_PATH . '/torrents';
 $TBDEV['torrent_dir'] = rtrim(tbdev_env('TBDEV_TORRENT_DIR', $torrent_dir_default), '/\\');
+$TBDEV['cache_dir'] = rtrim(tbdev_env('TBDEV_CACHE_DIR', $TBDEV['app_env'] === 'production' ? '' : ROOT_PATH . '/cache'), '/\\');
 if ($TBDEV['torrent_dir'] === '' || $TBDEV['torrent_dir'][0] !== '/')
   die('TBDEV_TORRENT_DIR must be an absolute writable data directory.');
+if ($TBDEV['cache_dir'] === '' || $TBDEV['cache_dir'][0] !== '/')
+  die('TBDEV_CACHE_DIR must be an absolute writable data directory.');
 
 # Production must use an explicit canonical HTTPS URL; never trust Host headers for links.
 $configured_baseurl = rtrim(tbdev_env('TBDEV_BASE_URL', ''), '/');

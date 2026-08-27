@@ -29,7 +29,7 @@ function get_reputation($user, $mode = 0, $rep_is_on = TRUE)
 	$member_reputation = "";
 	if( $rep_is_on )
 		{
-			@include 'cache/rep_cache.php';
+				@include rtrim($TBDEV['cache_dir'], '/\\') . '/rep_cache.php';
 			// ok long winded file checking, but it's much better than file_exists
 			if( ! isset( $reputations ) || ! is_array( $reputations ) || count( $reputations ) < 1)
 			{

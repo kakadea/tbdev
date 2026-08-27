@@ -19,7 +19,9 @@
 require_once "include/bittorrent.php";
 require_once "include/user_functions.php";
 
-dbconn( false );
+security_session_start();
+$csrf = security_csrf_token('reputation-settings');
+dbconn(false);
 
 loggedinorreturn();
 
@@ -32,11 +34,16 @@ loggedinorreturn();
 		}
 
 		
-$rep_set_cache = "cache/rep_settings_cache.php";
+	$rep_set_cache = rtrim($TBDEV['cache_dir'], '/\\') . '/rep_settings_cache.php';
 
-	if ( 'POST' == $_SERVER['REQUEST_METHOD'] )
+	if ($_SERVER['REQUEST_METHOD'] === 'POST')
 	{
-	unset($_POST['submit']);
+	if (!security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'reputation-settings'))
+	{
+	  http_response_code(400);
+	  exit('Invalid reputation settings request.');
+	}
+	unset($_POST['submit'], $_POST['csrf_token']);
 	//print_r($_POST);
 	rep_cache();
 	exit;
@@ -67,7 +74,7 @@ function rep_cache()
 			$settings['g_rep_negative'] = true;
 			$settings['g_rep_seeown'] = true;
 
-			$cache_file = ROOT_PATH . '/' . ltrim($rep_set_cache, '/');
+				$cache_file = $rep_set_cache;
 			$payload = "<?php\n\n\$GVARS = " . var_export($settings, true) . ";\n\n?>\n";
 
 			if (@file_put_contents($cache_file, $payload, LOCK_EX) === false)
@@ -125,6 +132,7 @@ function get_cache_array()
                          <div class='cblock-content'>
                              <div style='border: 1px solid rgb(131, 148, 178); padding: 5px;'>
                                  <form action='reputation_settings.php' id='repoptions' method='post'>
+                                      <input type='hidden' name='csrf_token' value='" . htmlsafechars($csrf) . "' />
                                       <div>Reputation On/Off</div>
 					                  <div style='padding: 5px; background-color: rgb(238, 242, 247);'>
 							              <div style='border: 1px solid rgb(131, 148, 178);'>

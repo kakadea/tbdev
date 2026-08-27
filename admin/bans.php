@@ -25,12 +25,19 @@ if ( ! defined( 'IN_TBDEV_ADMIN' ) )
 
 require_once "include/user_functions.php";
 
+security_session_start();
+$csrf = security_csrf_token('admin-bans');
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'admin-bans'))
+{
+  http_response_code(400);
+  exit('Invalid ban management request.');
+}
 
-    $lang = array_merge( $lang, load_language('ad_bans') );
-    
+    $lang = array_merge($lang, load_language('ad_bans'));
+
     $doUpdate = false;
 
-    $remove = isset($_GET['remove']) ? (int)$_GET['remove'] : 0;
+    $remove = ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['remove'])) ? (int) $_POST['remove'] : 0;
     if (is_valid_id($remove))
     {
       @mysql_query("DELETE FROM bans WHERE id=$remove") or sqlerr();
@@ -42,7 +49,7 @@ require_once "include/user_functions.php";
     if ($_SERVER["REQUEST_METHOD"] == "POST" && $CURUSER['class'] >= UC_ADMINISTRATOR)
     {
       //we doing just a cache rewrite or an add & rewrite?
-      if(isset($_POST['cacheit'])) 
+      if(isset($_POST['cacheit']))
       {
         $doUpdate = true;
       }
@@ -60,7 +67,7 @@ require_once "include/user_functions.php";
         $comment = sqlesc($comment);
         $added = TIME_NOW;
 
-        mysql_query("INSERT INTO bans (added, addedby, first, last, comment) 
+        mysql_query("INSERT INTO bans (added, addedby, first, last, comment)
                       VALUES($added, {$CURUSER['id']}, $first, $last, $comment)") or sqlerr(__FILE__, __LINE__);
         $doUpdate = true;
         //header("Location: {$TBDEV['baseurl']}/bans.php");
@@ -75,7 +82,7 @@ require_once "include/user_functions.php";
     $configfile="<"."?php\n\n\$bans = array(\n";
 
     $HTMLOUT = '';
-    
+
     $HTMLOUT = "
                  <div class='cblock'>
                      <div class='cblock-header'>{$lang['text_current']}</div>
@@ -96,47 +103,52 @@ require_once "include/user_functions.php";
                       <td class='heading' align='left'>{$lang['header_comment']}</td>
                       <td class='heading'>{$lang['header_remove']}</td>
                    </tr>\n";
-        
+
 
 
       while ($arr = mysql_fetch_assoc($res))
       {
-        if($doUpdate) 
+        if($doUpdate)
         {
           $configfile .= "array('id'=> '{$arr['id']}', 'first'=> {$arr['first']}, 'last'=> {$arr['last']}),\n";
         }
-        
+
         $arr["first"] = long2ip($arr["first"]);
         $arr["last"] = long2ip($arr["last"]);
-        
+
         $HTMLOUT .= "<tr>
           <td>".get_date($arr['added'],'')."</td>
           <td align='left'>{$arr['first']}</td>
           <td align='left'>{$arr['last']}</td>
           <td align='left'><a href='userdetails.php?id={$arr['addedby']}'>{$arr['username']}</a></td>
           <td align='left'>".htmlsafechars($arr['comment'])."</td>
-          <td><a href='admin.php?action=bans&amp;remove={$arr['id']}'>{$lang['text_remove']}</a></td>
+          <td><form method='post' action='admin.php?action=bans' style='display:inline;'>
+              <input type='hidden' name='csrf_token' value='" . htmlsafechars($csrf) . "' />
+              <input type='hidden' name='remove' value='{$arr['id']}' />
+              <button type='submit' class='btn'>{$lang['text_remove']}</button>
+              </form></td>
          </tr>\n";
       }
-      
+
       $HTMLOUT .= "</table>\n";
-      
+
     }
 
-    if($doUpdate) 
+    if($doUpdate)
     {
       $configfile .= "\n);\n\n?".">";
-      $filenum = fopen ("cache/bans_cache.php","w");
-      ftruncate($filenum, 0);
-      fwrite($filenum, $configfile);
-      fclose($filenum);
+      $cache_file = rtrim($TBDEV['cache_dir'], '/\\') . '/bans_cache.php';
+      if (@file_put_contents($cache_file, $configfile, LOCK_EX) === false)
+        stderr($lang['stderr_error'], 'Unable to update the ban cache.');
+      @chmod($cache_file, 0660);
     }
-          
+
     if ($CURUSER['class'] >= UC_ADMINISTRATOR)
     {
       $HTMLOUT .= "<br />
       <div class='inner_header'>{$lang['text_addban']}</div>
       <form method='post' action='admin.php?action=bans'>
+      <input type='hidden' name='csrf_token' value='" . htmlsafechars($csrf) . "' />
       <table border='1' cellspacing='0' cellpadding='5'>
         <tr>
           <td class='rowhead'>{$lang['table_firstip']}</td>
