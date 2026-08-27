@@ -497,42 +497,43 @@ function logincookie($id, $passhash, $updatedb = 1, $expires = 0x7fffffff)
       @mysql_query("UPDATE users SET last_login = ".TIME_NOW." WHERE id = $id");
 }
 
-function set_mycookie( $name, $value="", $expires_in=0, $sticky=1 )
+function set_mycookie($name, $value = "", $expires_in = 0, $sticky = 1)
+{
+    global $TBDEV;
+
+    if ($sticky == 1)
     {
-		global $TBDEV;
-		
-		if ( $sticky == 1 )
-    {
-      $expires = TIME_NOW + 60*60*24*365;
+        $expires = TIME_NOW + 60 * 60 * 24 * 365;
     }
-		else if ( $expires_in )
-		{
-			$expires = TIME_NOW + ( $expires_in * 86400 );
-		}
-		else
-		{
-			$expires = FALSE;
-		}
-		
-		$TBDEV['cookie_domain'] = $TBDEV['cookie_domain'] == "" ? ""  : $TBDEV['cookie_domain'];
-    $TBDEV['cookie_path']   = $TBDEV['cookie_path']   == "" ? "/" : $TBDEV['cookie_path'];
-      	
-		if ( PHP_VERSION < 5.2 )
-		{
-      if ( $TBDEV['cookie_domain'] )
-      {
-        @setcookie( $TBDEV['cookie_prefix'].$name, $value, $expires, $TBDEV['cookie_path'], $TBDEV['cookie_domain'] . '; HttpOnly' );
-      }
-      else
-      {
-        @setcookie( $TBDEV['cookie_prefix'].$name, $value, $expires, $TBDEV['cookie_path'] );
-      }
+    elseif ($expires_in)
+    {
+        $expires = TIME_NOW + ($expires_in * 86400);
     }
     else
     {
-      @setcookie( $TBDEV['cookie_prefix'].$name, $value, $expires, $TBDEV['cookie_path'], $TBDEV['cookie_domain'], NULL, TRUE );
+        $expires = 0;
     }
-			
+
+    $domain = $TBDEV['cookie_domain'] === '' ? '' : $TBDEV['cookie_domain'];
+    $path = $TBDEV['cookie_path'] === '' ? '/' : $TBDEV['cookie_path'];
+    $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+    $cookie_name = $TBDEV['cookie_prefix'] . $name;
+
+    if (PHP_VERSION_ID < 50200)
+    {
+        @setcookie($cookie_name, $value, $expires, $path, $domain);
+        return;
+    }
+
+    @setcookie($cookie_name, $value, array(
+        'expires' => $expires,
+        'path' => $path,
+        'domain' => $domain,
+        'secure' => $secure,
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ));
 }
 function get_mycookie($name) 
     {
