@@ -168,7 +168,11 @@ $TBDEV['msg_alert'] = 1; // saves a query when off
 $TBDEV['captcha'] = 0; // turns captcha on/off
 
 $TBDEV['autoclean_interval'] = 900;
-$TBDEV['sql_error_log'] = ROOT_PATH.'/logs/sql_err_'.date("M_D_Y").'.log';
+$TBDEV['log_dir'] = tbdev_env('TBDEV_LOG_DIR', ROOT_PATH . '/logs');
+if ($TBDEV['log_dir'] === '' || $TBDEV['log_dir'][0] !== '/')
+  die('TBDEV_LOG_DIR must be an absolute path.');
+$TBDEV['log_dir'] = rtrim($TBDEV['log_dir'], '/');
+$TBDEV['sql_error_log'] = $TBDEV['log_dir'] . '/sql_err_' . date('M_D_Y') . '.log';
 $TBDEV['pic_base_url'] = "./pic/";
 $TBDEV['stylesheet'] = "./1.css";
 $TBDEV['readpost_expiry'] = 14*86400; // 14 days

@@ -17,4 +17,10 @@ vendor
 var
 runtime
 docs
+install
+SQL
+database
+tests
+scripts
+*.md
 .tbdev-local
