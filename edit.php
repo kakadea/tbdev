@@ -20,6 +20,9 @@ require_once "include/bittorrent.php" ;
 require_once "include/user_functions.php" ;
 require_once "include/html_functions.php" ;
 
+security_session_start();
+$torrent_edit_csrf = security_csrf_token('torrent-edit');
+
 if (!mkglobal("id"))
 	die();
 
@@ -32,29 +35,30 @@ dbconn();
 loggedinorreturn();
 
     $lang = array_merge( load_language('global'), load_language('edit') );
-    
+
     $res = mysql_query("SELECT * FROM torrents WHERE id = $id");
     $row = mysql_fetch_assoc($res);
     if (!$row)
       stderr($lang['edit_user_error'], $lang['edit_no_torrent']);
 
 
-    
-    if (!isset($CURUSER) || ($CURUSER["id"] != $row["owner"] && get_user_class() < UC_MODERATOR)) 
+
+    if (!isset($CURUSER) || ($CURUSER["id"] != $row["owner"] && get_user_class() < UC_MODERATOR))
     {
       stderr($lang['edit_user_error'], sprintf($lang['edit_no_permission'], urlencode($_SERVER['REQUEST_URI'])));
     }
 
 
     $HTMLOUT = '';
-    
+
     $HTMLOUT  .= "<form method='post' action='takeedit.php' enctype='multipart/form-data'>
-    <input type='hidden' name='id' value='$id' />";
-    
-    if (isset($_GET["returnto"]))
-      $HTMLOUT  .= "<input type='hidden' name='returnto' value='" . htmlsafechars($_GET["returnto"]) . "' />\n";
+    <input type='hidden' name='csrf_token' value='" . htmlsafechars($torrent_edit_csrf) . "' />
+    <input type='hidden' name='id' value='" . (int) $id . "' />";
+
+    if (isset($_GET['returnto']) && is_string($_GET['returnto']))
+      $HTMLOUT  .= "<input type='hidden' name='returnto' value='" . htmlsafechars(security_validate_return_to($_GET['returnto'], $TBDEV['baseurl'] . '/details.php?id=' . (int) $id)) . "' />\n";
     $HTMLOUT  .=  "<table border='1' cellspacing='0' cellpadding='10'>\n";
-    
+
     $HTMLOUT  .= tr($lang['edit_torrent_name'], "<input type='text' name='name' value='" . htmlsafechars($row["name"]) . "' size='80' />", 1);
     $HTMLOUT  .= tr($lang['edit_nfo'], "<input type='radio' name='nfoaction' value='keep' checked='checked' />{$lang['edit_keep_current']}<br />".
 	"<input type='radio' name='nfoaction' value='update' />{$lang['edit_update']}<br /><input type='file' name='nfo' size='80' />", 1);
@@ -66,14 +70,14 @@ loggedinorreturn();
     {
       $c = " checked";
     }
-    
+
     $HTMLOUT  .= tr($lang['edit_description'], "<textarea name='descr' rows='10' cols='80'>" . htmlsafechars($row["ori_descr"]) . "</textarea><br />({$lang['edit_tags']})", 1);
 
     $s = "<select name='type'>\n";
 
     $cats = genrelist();
-    
-    foreach ($cats as $subrow) 
+
+    foreach ($cats as $subrow)
     {
       $s .= "<option value='" . $subrow["id"] . "'";
       if ($subrow["id"] == $row["category"])
@@ -92,9 +96,10 @@ loggedinorreturn();
 
     $HTMLOUT  .= "<tr><td colspan='2' align='center'><input type='submit' value='{$lang['edit_submit']}' class='btn' /> <input type='reset' value='{$lang['edit_revert']}' class='btn' /></td></tr>
     </table>
-    </form>
-    <br />
-    <form method='post' action='delete.php'>
+    </form>";
+    $torrent_delete_csrf = security_csrf_token('torrent-delete');
+    $HTMLOUT  .= "<form method='post' action='delete.php'>
+    <input type='hidden' name='csrf_token' value='" . htmlsafechars($torrent_delete_csrf) . "' />
     <table border='1' cellspacing='0' cellpadding='5'>
     <tr>
       <td class='embedded' style='background-color: #F5F4EA;padding-bottom: 5px' colspan='2'><b>{$lang['edit_delete_torrent']}.</b> {$lang['edit_reason']}</td>
@@ -114,12 +119,12 @@ loggedinorreturn();
     <tr>
       <td><input name='reasontype' type='radio' value='5' checked='checked' />&nbsp;{$lang['edit_other']}</td><td><input type='text' size='40' name='reason[]' />({$lang['edit_req']})<input type='hidden' name='id' value='$id' /></td>
     </tr>";
-    
-    if (isset($_GET["returnto"]))
+
+    if (isset($_GET['returnto']) && is_string($_GET['returnto']))
     {
-      $HTMLOUT  .= "<input type='hidden' name='returnto' value='" . htmlsafehars($_GET["returnto"]) . "' />\n";
-		}
-    
+      $HTMLOUT  .= "<input type='hidden' name='returnto' value='" . htmlsafechars(security_validate_return_to($_GET['returnto'], $TBDEV['baseurl'] . '/details.php?id=' . (int) $id)) . "' />\n";
+			}
+
     $HTMLOUT  .= "<tr><td colspan='2' align='center'><input type='submit' value='{$lang['edit_delete']}' class='btn' /></td>
     </tr>
     </table>

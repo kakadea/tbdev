@@ -4,7 +4,7 @@ $lang = array(
 'news_error' => 'Error',
 'news_gen_error' => 'Invalid news item ID - Code %d .',
 'news_delete_notice' => 'Delete news item',
-'news_delete_text' => "Do you really want to delete a news item?<br/>Click <a href='admin.php?action=news&amp;mode=delete&amp;newsid=%d&amp;returnto=news&amp;sure=1'>here</a> if you are sure.",
+'news_delete_text' => "Do you really want to delete news item %d? Confirm with the button below.",
 
 #delete
 'news_delete_ok' => 'News item was deleted successfully.',

@@ -26,14 +26,15 @@ if ( ! defined( 'IN_TBDEV_ADMIN' ) )
 require_once "include/html_functions.php";
 require_once "include/user_functions.php";
 
-
+security_session_start();
+$forum_csrf = security_csrf_token('admin-forums');
 
     $lang = array_merge( $lang, load_language('ad_forummanage') );
     
-    if( (get_user_class() < UC_MODERATOR) || ($CURUSER['id'] !== '1')) //sysop id check
+    if (get_user_class() < UC_MODERATOR || (int) $CURUSER['id'] !== 1) //sysop id check
     stderr("{$lang['stderr_error']}", "{$lang['text_permission']}");
 
-    $mode = isset($_GET['mode']) ? $_GET['mode'] : ''; //if not goto default!
+    $mode = isset($_GET['mode']) && is_string($_GET['mode']) ? $_GET['mode'] : ''; //if not goto default!
 
 
     switch($mode) {
@@ -67,6 +68,33 @@ require_once "include/user_functions.php";
 	}
 
 
+
+function forum_require_csrf()
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'admin-forums'))
+    {
+      http_response_code(400);
+      exit('Invalid forum administration request.');
+    }
+}
+
+function forum_validate_int($value, $min, $max)
+{
+    if (!is_scalar($value) || !preg_match('/\A\d+\z/', (string) $value))
+      return false;
+    $value = (int) $value;
+    return $value >= $min && $value <= $max ? $value : false;
+}
+
+function forum_validate_text($value, $max_length)
+{
+    if (!is_string($value))
+      return false;
+    $value = trim($value);
+    if ($value === '' || strlen($value) > $max_length || preg_match('/[\\x00-\\x1F\\x7F]/', $value))
+      return false;
+    return $value;
+}
 
 function showForums() {
 
@@ -120,7 +148,7 @@ function showForums() {
 }
 
 function addForum() {
-    global $CURUSER, $lang;
+    global $CURUSER, $lang, $forum_csrf;
 
     $HTMLOUT = '';
 
@@ -134,6 +162,7 @@ function addForum() {
 
 
     $HTMLOUT .= "            <form method='post' action='admin.php?action=forummanage&amp;mode=takeadd'>
+                                      <input type='hidden' name='csrf_token' value='{$forum_csrf}' />
                                   <table width='600' border='0' cellspacing='0' cellpadding='3' style='text-align:center;'>
                                         <tr style='text-align:center;'>
                                            <td colspan='2' class='colhead'>{$lang['header_makenew']}</td>
@@ -219,7 +248,7 @@ function addForum() {
 
 function editForum() {
 
-    global $lang;
+    global $lang, $forum_csrf;
     
     $id = isset($_GET["id"]) ? (int)$_GET["id"] : stderr("Error", "Not Found");
 
@@ -238,6 +267,7 @@ function editForum() {
 
 
       $HTMLOUT .= "          <form method='post' action='admin.php?action=forummanage&amp;mode=takeedit'>
+                                      <input type='hidden' name='csrf_token' value='{$forum_csrf}' />
                                   <table width='600'  border='0' cellspacing='0' cellpadding='3' style='text-align:center;'>
                                         <tr style='text-align:center;'>
                                            <td colspan='2' class='colhead'>{$lang['header_editforum']} ".htmlsafechars($row["name"])."</td>
@@ -326,70 +356,62 @@ function editForum() {
 }
 
 function takeaddForum() {
-	
-    global $lang;
-    
-    if ( !$_POST['name'] && !$_POST['desc'] ) { header("Location: admin.php?action=forummanage"); die();}
 
-    if( strlen($_POST['name']) > 150 OR strlen($_POST['desc']) > 350 )
-    {
-      $back = "&nbsp;<a href='javascript: history.back();'>Go Back</a>";
-      stderr( $lang['stderr_error'], $lang['text_error'] . $back );
-    }
-    
-    @mysql_query("INSERT INTO forums 
-    (sort, name,  description,  minclassread,  minclasswrite, minclasscreate) VALUES(" . 
-    sqlesc($_POST['sort']) . ", " . 
-    sqlesc($_POST['name']). ", " . 
-    sqlesc($_POST['desc']). ", " . 
-    sqlesc($_POST['readclass']) . ", " . 
-    sqlesc($_POST['writeclass']) . ", " . 
-    sqlesc($_POST['createclass']) . ")");
+    global $lang, $CURUSER;
+    forum_require_csrf();
 
-    if(mysql_affected_rows() === 1)
-      stderr("{$lang['stderr_success']}", "{$lang['text_added']}. <a href='admin.php?action=forummanage'>{$lang['text_return']}</a>");
-    else
-      stderr("{$lang['stderr_success']}", "{$lang['text_error']}. <a href='admin.php?action=forummanage'>{$lang['text_return']}</a>");
-    die();
+    $name = forum_validate_text(isset($_POST['name']) ? $_POST['name'] : null, 150);
+    $description = forum_validate_text(isset($_POST['desc']) ? $_POST['desc'] : null, 350);
+    $sort = forum_validate_int(isset($_POST['sort']) ? $_POST['sort'] : null, 0, 100000);
+    $read_class = forum_validate_int(isset($_POST['readclass']) ? $_POST['readclass'] : null, 0, (int) $CURUSER['class']);
+    $write_class = forum_validate_int(isset($_POST['writeclass']) ? $_POST['writeclass'] : null, 0, (int) $CURUSER['class']);
+    $create_class = forum_validate_int(isset($_POST['createclass']) ? $_POST['createclass'] : null, 0, (int) $CURUSER['class']);
+    if ($name === false || $description === false || $sort === false || $read_class === false || $write_class === false || $create_class === false)
+      stderr($lang['stderr_error'], $lang['text_error']);
 
+    $sql = 'INSERT INTO forums (sort, name, description, minclassread, minclasswrite, minclasscreate) VALUES ('
+      . (int) $sort . ', ' . sqlesc($name) . ', ' . sqlesc($description) . ', '
+      . (int) $read_class . ', ' . (int) $write_class . ', ' . (int) $create_class . ')';
+    mysql_query($sql) or sqlerr(__FILE__, __LINE__);
+    if (mysql_affected_rows() === 1)
+      stderr($lang['stderr_success'], $lang['text_added'] . ". <a href='admin.php?action=forummanage'>{$lang['text_return']}</a>");
+    stderr($lang['stderr_error'], $lang['text_error'] . ". <a href='admin.php?action=forummanage'>{$lang['text_return']}</a>");
 }
 
 function takeeditForum() {
 
-    global $lang;
-    
-    if (!$_POST['name'] && !$_POST['desc'] && !$_POST['id']) { header("Location: admin.php?action=forummanage"); die();}
+    global $lang, $CURUSER;
+    forum_require_csrf();
 
-    if( strlen($_POST['name']) > 150 OR strlen($_POST['desc']) > 350 )
-    {
-      $back = "&nbsp;<a href='javascript: history.back();'>Go Back</a>";
-      stderr( $lang['stderr_error'], $lang['text_error'] . $back );
-    }
-    
-    @mysql_query("UPDATE forums SET sort = " . 
-    sqlesc($_POST['sort']) . ", name = " . 
-    sqlesc($_POST['name']). ", description = " . 
-    sqlesc($_POST['desc']). ", minclassread = " . 
-    sqlesc($_POST['readclass']) . ", minclasswrite = " . 
-    sqlesc($_POST['writeclass']) . ", minclasscreate = " . 
-    sqlesc($_POST['createclass']) . " where id = ".
-    sqlesc($_POST['id']));
+    $id = forum_validate_int(isset($_POST['id']) ? $_POST['id'] : null, 1, 2147483647);
+    $name = forum_validate_text(isset($_POST['name']) ? $_POST['name'] : null, 150);
+    $description = forum_validate_text(isset($_POST['desc']) ? $_POST['desc'] : null, 350);
+    $sort = forum_validate_int(isset($_POST['sort']) ? $_POST['sort'] : null, 0, 100000);
+    $read_class = forum_validate_int(isset($_POST['readclass']) ? $_POST['readclass'] : null, 0, (int) $CURUSER['class']);
+    $write_class = forum_validate_int(isset($_POST['writeclass']) ? $_POST['writeclass'] : null, 0, (int) $CURUSER['class']);
+    $create_class = forum_validate_int(isset($_POST['createclass']) ? $_POST['createclass'] : null, 0, (int) $CURUSER['class']);
+    if ($id === false || $name === false || $description === false || $sort === false || $read_class === false || $write_class === false || $create_class === false)
+      stderr($lang['stderr_error'], $lang['text_error']);
 
-    if(mysql_affected_rows() == 1)
-      stderr("{$lang['stderr_success']}", "{$lang['text_edited']}. <a href='admin.php?action=forummanage'>{$lang['text_return']}</a>");
-    else
-      stderr("{$lang['stderr_error']}", "{$lang['text_error']}. <a href='admin.php?action=forummanage'>{$lang['text_return']}</a>");
-    die();
+    $sql = 'UPDATE forums SET sort = ' . (int) $sort . ', name = ' . sqlesc($name)
+      . ', description = ' . sqlesc($description) . ', minclassread = ' . (int) $read_class
+      . ', minclasswrite = ' . (int) $write_class . ', minclasscreate = ' . (int) $create_class
+      . ' WHERE id = ' . (int) $id;
+    mysql_query($sql) or sqlerr(__FILE__, __LINE__);
+    if (mysql_affected_rows() === 1)
+      stderr($lang['stderr_success'], $lang['text_edited'] . ". <a href='admin.php?action=forummanage'>{$lang['text_return']}</a>");
+    stderr($lang['stderr_error'], $lang['text_error'] . ". <a href='admin.php?action=forummanage'>{$lang['text_return']}</a>");
 }
 
 function deleteForum() {
 
     global $lang;
 
-    $id = isset($_GET['id']) ? (int)$_GET['id'] : stderr("{$lang['stderr_error']}", "{$lang['text_noid']}");
-	
-		
-    $res = @mysql_query("SELECT id FROM topics WHERE forumid=$id");
+    $id = isset($_GET['id']) && !is_array($_GET['id']) ? (int) $_GET['id'] : 0;
+    if (!is_valid_id($id))
+      stderr($lang['stderr_error'], $lang['text_noid']);
+
+    $res = mysql_query('SELECT id FROM topics WHERE forumid = ' . (int) $id) or sqlerr(__FILE__, __LINE__);
 
     if (mysql_num_rows($res) >= 1) 
     {
@@ -398,8 +420,13 @@ function deleteForum() {
     }
     else
     {
-      $link =  "{$lang['text_warning']}<a href='admin.php?action=forummanage&amp;mode=takedelete&amp;id=$id'>{$lang['text_warning_cont']}</a>";
-      stderr("{$lang['stderr_error']}", $link);
+      global $forum_csrf;
+      $link = "{$lang['text_warning']}
+        <form method='post' action='admin.php?action=forummanage&amp;mode=takedelete&amp;id=" . (int) $id . "'>
+        <input type='hidden' name='csrf_token' value='{$forum_csrf}' />
+        <input type='submit' value='{$lang['text_warning_cont']}' class='btn' />
+        </form>";
+      stderr($lang['stderr_error'], $link);
 		}
 	
 }
@@ -408,47 +435,49 @@ function deleteForum() {
 function takedeleteForum() {
 
     global $lang;
-    
-    $id = isset($_GET['id']) ? (int)$_GET['id'] : stderr("{$lang['stderr_error']}", "{$lang['text_noid']}");
+    forum_require_csrf();
 
-    if(!isset($_POST['deleteall'])) 
+    $id = isset($_GET['id']) && !is_array($_GET['id']) ? (int) $_GET['id'] : 0;
+    if (!is_valid_id($id))
+      stderr($lang['stderr_error'], $lang['text_noid']);
+
+    if (!isset($_POST['deleteall']))
     {
-      $res = @mysql_query("SELECT id FROM topics WHERE forumid=$id");
-      
-      if (mysql_num_rows($res) == 0) 
-        @mysql_query("DELETE FROM forums WHERE id=$id");
-      
-      (mysql_affected_rows() > 0) ? 
-    stderr("{$lang['stderr_success']}", "{$lang['text_forumdeleted']} <a href='admin.php?action=forummanage'>{$lang['text_deleted_text']}</a>" ) : stderr("{$lang['stderr_error']}", "{$lang['text_nowheretomove']}");
-    }
-    else
-    {
-      $forumid = (isset($_POST['forumid']) && ctype_digit($_POST['forumid'])) ? (int)$_POST['forumid'] : stderr("{$lang['stderr_error']}", "{$lang['text_smthbad']}");
-      
-      $res = @mysql_query("SELECT id FROM topics WHERE forumid=$id");
-      
-      if (mysql_num_rows($res) == 0) 
-        stderr("{$lang['stderr_error']}", "{$lang['text_notopic']}");
-      while($row = mysql_fetch_assoc($res)) 
-        $tid[] = $row['id'];
-      
-      @mysql_query("UPDATE topics SET forumid=$forumid WHERE id IN (".join(',' , $tid).")");
-      
-      if(mysql_affected_rows() > 0)
-      
-        @mysql_query("DELETE FROM forums WHERE id=$id");
-        
-      (mysql_affected_rows() > 0) ? 
-    stderr("{$lang['stderr_success']}", "{$lang['text_forumdeleted']}") : stderr("{$lang['stderr_error']}", "{$lang['text_smthbad']}");
-        
-      
+      $res = mysql_query('SELECT id FROM topics WHERE forumid = ' . (int) $id) or sqlerr(__FILE__, __LINE__);
+      if (mysql_num_rows($res) !== 0)
+        stderr($lang['stderr_error'], $lang['text_smthbad']);
+      mysql_query('DELETE FROM forums WHERE id = ' . (int) $id . ' LIMIT 1') or sqlerr(__FILE__, __LINE__);
+      if (mysql_affected_rows() !== 1)
+        stderr($lang['stderr_error'], $lang['text_nowheretomove']);
+      stderr($lang['stderr_success'], $lang['text_forumdeleted'] . " <a href='admin.php?action=forummanage'>{$lang['text_deleted_text']}</a>");
     }
 
+    $forumid = forum_validate_int(isset($_POST['forumid']) ? $_POST['forumid'] : null, 1, 2147483647);
+    if ($forumid === false || $forumid === $id)
+      stderr($lang['stderr_error'], $lang['text_smthbad']);
+    $destination = mysql_query('SELECT id FROM forums WHERE id = ' . (int) $forumid . ' LIMIT 1') or sqlerr(__FILE__, __LINE__);
+    if (mysql_num_rows($destination) !== 1)
+      stderr($lang['stderr_error'], $lang['text_smthbad']);
+
+    $res = mysql_query('SELECT id FROM topics WHERE forumid = ' . (int) $id) or sqlerr(__FILE__, __LINE__);
+    if (mysql_num_rows($res) === 0)
+      stderr($lang['stderr_error'], $lang['text_notopic']);
+    $topic_ids = array();
+    while ($row = mysql_fetch_assoc($res))
+      $topic_ids[] = (int) $row['id'];
+
+    mysql_query('UPDATE topics SET forumid = ' . (int) $forumid . ' WHERE id IN (' . implode(',', $topic_ids) . ')') or sqlerr(__FILE__, __LINE__);
+    if (mysql_affected_rows() < 1)
+      stderr($lang['stderr_error'], $lang['text_smthbad']);
+    mysql_query('DELETE FROM forums WHERE id = ' . (int) $id . ' LIMIT 1') or sqlerr(__FILE__, __LINE__);
+    if (mysql_affected_rows() !== 1)
+      stderr($lang['stderr_error'], $lang['text_smthbad']);
+    stderr($lang['stderr_success'], $lang['text_forumdeleted']);
 }
 
 function forum_select($currentforum = 0) {
 
-    global $lang;
+    global $lang, $forum_csrf;
     
     $HTMLOUT = '';
 
@@ -460,6 +489,7 @@ function forum_select($currentforum = 0) {
 
     $HTMLOUT .= "            <div style='text-align:center;'>
                                  <form method='post' action='admin.php?action=forummanage&amp;mode=takedelete&amp;id=$currentforum' name='jump'>
+                                      <input type='hidden' name='csrf_token' value='{$forum_csrf}' />
                                       <input type='hidden' name='deleteall' value='true' />
                                       {$lang['text_select']}
                                       <select name='forumid'>";

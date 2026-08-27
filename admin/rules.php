@@ -10,6 +10,9 @@ if ( ! defined( 'IN_TBDEV_ADMIN' ) )
 
 require_once "include/user_functions.php";
 
+security_session_start();
+$rules_csrf = security_csrf_token('admin-rules');
+
     $lang = array_merge( $lang, load_language('ad_rules') );
     
     $params = array_merge( $_GET, $_POST );
@@ -70,8 +73,17 @@ require_once "include/user_functions.php";
 
 
 
+function rules_require_csrf()
+{
+  if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'admin-rules'))
+  {
+    http_response_code(400);
+    exit('Invalid rules administration request.');
+  }
+}
+
 function Do_show() {
-  global $TBDEV, $lang;
+  global $TBDEV, $lang, $rules_csrf;
   
   $sql = mysql_query("SELECT * FROM rules_categories") or die("Ooops");
 
@@ -93,15 +105,18 @@ function Do_show() {
                          <div class='cblock-content'>
                              <table style='width: 70%; cellpadding: 5px;'>";
   
-  while ($arr = mysql_fetch_assoc($sql)) 
+  while ($arr = mysql_fetch_assoc($sql))
   {
+    $cid = (int) $arr['cid'];
+    $category_name = htmlsafechars($arr['rcat_name']);
+    $min_class_read = (int) $arr['min_class_read'];
     $htmlout .= "
       <tr>
-        <td>{$arr['cid']}</td>
-        <td><a href='{$TBDEV['baseurl']}/admin.php?action=rules&amp;mode=rules_edit&amp;catid={$arr['cid']}'>{$arr['rcat_name']}</a></td>
-        <td>{$arr['min_class_read']}</td>
-        <td><a href='{$TBDEV['baseurl']}/admin.php?action=rules&amp;mode=cat_edit&amp;catid={$arr['cid']}'>{$lang['rules_edit']}</a></td>
-        <td><a href='{$TBDEV['baseurl']}/admin.php?action=rules&amp;mode=cat_delete&amp;catid={$arr['cid']}'>{$lang['rules_delete']}</a></td>
+        <td>{$cid}</td>
+        <td><a href='{$TBDEV['baseurl']}/admin.php?action=rules&amp;mode=rules_edit&amp;catid={$cid}'>{$category_name}</a></td>
+        <td>{$min_class_read}</td>
+        <td><a href='{$TBDEV['baseurl']}/admin.php?action=rules&amp;mode=cat_edit&amp;catid={$cid}'>{$lang['rules_edit']}</a></td>
+        <td><a href='{$TBDEV['baseurl']}/admin.php?action=rules&amp;mode=cat_delete&amp;catid={$cid}'>{$lang['rules_delete']}</a></td>
       </tr>";
   }
   
@@ -123,14 +138,19 @@ function Do_show() {
 // ===added delete
 function Do_Rules_Delete()
 {
+    rules_require_csrf();
     if( !isset($_POST['fdata']) OR !is_array($_POST['fdata']) )
       stderr("Error", "Bad data!");
     
     $id = array();
     
-    foreach( $_POST['fdata'] as $k => $v )
+    if (count($_POST['fdata']) > 100)
+      stderr('Error', 'Too many rules submitted');
+    foreach ($_POST['fdata'] as $k => $v)
     {
-      if( isset($v['rules_id']) AND !empty($v['rules_id']) )
+      if (!is_array($v))
+        continue;
+      if (isset($v['rules_id']) && !is_array($v['rules_id']) && is_valid_id($v['rules_id']))
       {
         $id[] = intval($v['rules_id']);
       }
@@ -148,16 +168,26 @@ function Do_Rules_Delete()
 
 function Cat_Delete($chk=false)
 {
-    $id = isset($_GET['catid']) ? (int)$_GET['catid'] : 0;
+    if ($chk)
+      rules_require_csrf();
+    $source = $chk ? $_POST : $_GET;
+    $id = isset($source['catid']) && !is_array($source['catid']) ? (int) $source['catid'] : 0;
     
     if (!is_valid_id($id))
         stderr("Error", "Bad ID!");
     
-    if( !$chk )
+    if (!$chk)
     {
-      stderr("Sanity Check!", "You're about to delete a rules category, this will delete ALL content within that category! <br />
-      <a href='admin.php?action=rules&amp;catid={$id}&amp;mode=cat_delete_chk'><span style='font-weight: bold; color: green'>CONTINUE</span></a>
-       or <a href='admin.php?action=rules'><span style='font-weight: bold; color: red'>CANCEL</span></a>");
+      global $rules_csrf;
+      $confirm = "You're about to delete a rules category, this will delete ALL content within that category! <br />
+        <form method='post' action='admin.php?action=rules'>
+        <input type='hidden' name='mode' value='cat_delete_chk' />
+        <input type='hidden' name='catid' value='" . (int) $id . "' />
+        <input type='hidden' name='csrf_token' value='" . htmlsafechars($rules_csrf) . "' />
+        <input type='submit' value='CONTINUE' class='button' />
+        </form>
+        <a href='admin.php?action=rules'>CANCEL</a>";
+      stderr('Sanity Check!', $confirm);
     }
     
     @mysql_query("DELETE FROM rules WHERE id = $id") or stderr("SQL Error", "1OOps!");
@@ -169,7 +199,7 @@ function Cat_Delete($chk=false)
 function Show_Cat_Edit_Form()
 {
     
-    global $lang, $CURUSER;
+    global $lang, $CURUSER, $rules_csrf;
     
     $htmlout='';
     
@@ -192,7 +222,8 @@ function Show_Cat_Edit_Form()
 
       <form name='inputform' method='post' action='admin.php?action=rules'>
       <input type='hidden' name='mode' value='takeedit_cat' />
-      <input type='hidden' name='cat' value='{$row['cid']}' />
+      <input type='hidden' name='cat' value='" . (int) $row['cid'] . "' />
+      <input type='hidden' name='csrf_token' value='" . htmlsafechars($rules_csrf) . "' />
       <input type='text' value='" . htmlsafechars($row['rcat_name']) . "' name='rcat_name' style='width:380px;' />
 
       <select name='min_class_read'>";
@@ -216,7 +247,7 @@ function Show_Cat_Edit_Form()
 
 function Show_Rules_Edit()
 {
-    global $lang, $CURUSER;
+    global $lang, $CURUSER, $rules_csrf;
     
     $htmlout='';
     
@@ -233,6 +264,7 @@ function Show_Rules_Edit()
         stderr("SQL Error", "Nothing doing here!");
         
     $htmlout .= "<form name='compose' method='post' action='admin.php?action=rules'>
+    <input type='hidden' name='csrf_token' value='" . htmlsafechars($rules_csrf) . "' />
     <!--<input type='hidden' name='mode' value='rules_update' />-->";
       
     while ($row = mysql_fetch_assoc($sql)) 
@@ -258,6 +290,7 @@ function Show_Rules_Edit()
     }
     
     $htmlout .= "<input type='submit' name='submit' value='With Selected' class='button' />&nbsp;
+    <input type='hidden' name='csrf_token' value='" . htmlsafechars($rules_csrf) . "' />
     <select name='mode'>
     <option value=''>--- Select One ---</option>
     <option value='takeedit_rules'>Update Rules</option>
@@ -271,7 +304,7 @@ function Show_Rules_Edit()
 
 function Do_Rules_Update()
 {
-    
+    rules_require_csrf();
     $time = TIME_NOW;
     $updateset = array();
     
@@ -280,17 +313,22 @@ function Do_Rules_Update()
       stderr("Error", "Don't leave any fields blank");
     
     
-    foreach( $_POST['fdata'] as $k => $v )
+    if (count($_POST['fdata']) > 100)
+      stderr('Error', 'Too many rules submitted');
+    foreach ($_POST['fdata'] as $k => $v)
     {
-      $holder ='';
-      if( isset($v['rules_id']) AND !empty($v['rules_id']) )
+      if (!is_array($v) || !isset($v['rules_id']) || is_array($v['rules_id']) || !is_valid_id($v['rules_id']))
+        continue;
+      $holder = '';
+      foreach (array('heading', 'body') as $field)
       {
-        foreach( array('heading', 'body') as $x )
-        {
-        isset($v[ $x ]) AND !empty($v[ $x ]) ? $holder .= "{$x} = ".sqlesc(strip_tags($v[ $x ])).", " : stderr('Error', "{$x}  is empty");
-        }
-        $updateset[] = "UPDATE rules SET {$holder} mtime = {$time} WHERE id = ".intval($v['rules_id']);
+        if (!isset($v[$field]) || !is_string($v[$field]) || trim($v[$field]) === '')
+          stderr('Error', "{$field} is empty");
+        if (strlen($v[$field]) > ($field === 'heading' ? 255 : 200000))
+          stderr('Error', "{$field} is too long");
+        $holder .= $field . ' = ' . sqlesc(strip_tags(trim($v[$field]))) . ', ';
       }
+      $updateset[] = 'UPDATE rules SET ' . $holder . 'mtime = ' . $time . ' WHERE id = ' . (int) $v['rules_id'];
     }
     /*
     echo '<pre>';
@@ -310,17 +348,19 @@ function Do_Rules_Update()
 
 function Do_Cat_Update()
 {
-    $cat_id = (int)$_POST['cat'];
-    
-    $min_class_read = sqlesc(intval($_POST['min_class_read']));
+    rules_require_csrf();
+    global $CURUSER;
+    $cat_id = isset($_POST['cat']) && !is_array($_POST['cat']) ? (int) $_POST['cat'] : 0;
+    $min_class_read = isset($_POST['min_class_read']) && is_scalar($_POST['min_class_read']) && preg_match('/\A\d+\z/', (string) $_POST['min_class_read'])
+      ? (int) $_POST['min_class_read'] : -1;
 
     if (!is_valid_id($cat_id))
         stderr("Error", "No values");
 
-    if (empty($_POST['rcat_name']) || (strlen($_POST['rcat_name']) > 100))
-        stderr("Error", "No value or value too big");
+    if (!isset($_POST['rcat_name']) || !is_string($_POST['rcat_name']) || trim($_POST['rcat_name']) === '' || strlen($_POST['rcat_name']) > 100 || $min_class_read < 0 || $min_class_read > $CURUSER['class'])
+        stderr('Error', 'No value or value too big');
 
-    $sql = "UPDATE rules_categories SET rcat_name = " . sqlesc(strip_tags($_POST['rcat_name'])) . ", min_class_read=$min_class_read WHERE cid=$cat_id";
+    $sql = 'UPDATE rules_categories SET rcat_name = ' . sqlesc(strip_tags(trim($_POST['rcat_name']))) . ', min_class_read=' . $min_class_read . ' WHERE cid=' . $cat_id;
 
     @mysql_query($sql);
 
@@ -333,16 +373,16 @@ function Do_Cat_Update()
 
 function Do_Cat_Add()
 {
-    global $TBDEV;
-    
+    global $TBDEV, $lang, $CURUSER;
+    rules_require_csrf();
     $htmlout='';
-    
-    if (empty($_POST['rcat_name']) || strlen($_POST['rcat_name']) > 100)
-        stderr("Error", "Field is blank or length too long!");
+    $cat_name_raw = isset($_POST['rcat_name']) && is_string($_POST['rcat_name']) ? trim($_POST['rcat_name']) : '';
+    $min_class_read = isset($_POST['min_class_read']) && is_scalar($_POST['min_class_read']) && preg_match('/\A\d+\z/', (string) $_POST['min_class_read'])
+      ? (int) $_POST['min_class_read'] : -1;
+    if ($cat_name_raw === '' || strlen($cat_name_raw) > 100 || $min_class_read < 0 || $min_class_read > $CURUSER['class'])
+        stderr('Error', 'Field is blank or length too long!');
 
-    $cat_name = sqlesc(strip_tags($_POST['rcat_name']));
-    
-    $min_class_read = sqlesc(strip_tags($_POST['min_class_read']));
+    $cat_name = sqlesc(strip_tags($cat_name_raw));
 
     $sql = "INSERT INTO rules_categories (rcat_name,min_class_read) VALUES ($cat_name, $min_class_read)";
 
@@ -362,21 +402,17 @@ function Do_Cat_Add()
 
 function Do_Rules_Add()
 {
-
+    rules_require_csrf();
     global $lang;
-    
-    $cat_id = (int)$_POST['cat'];
-
+    $cat_id = isset($_POST['cat']) && !is_array($_POST['cat']) ? (int) $_POST['cat'] : 0;
     if (!is_valid_id($cat_id))
-      stderr("Error", "No heading");
-    
-    if (empty($_POST['heading']) || empty($_POST['body']) || strlen($_POST['heading']) > 100)
-      stderr("Error", "Field is blank or length too long! <a href='admin.php?action=rules'>Go Back</a>");
-    
-      
-    $heading = sqlesc(strip_tags($_POST['heading']));
-    
-    $body = sqlesc(strip_tags($_POST['body']));
+      stderr('Error', 'No heading');
+    $heading_raw = isset($_POST['heading']) && is_string($_POST['heading']) ? trim($_POST['heading']) : '';
+    $body_raw = isset($_POST['body']) && is_string($_POST['body']) ? trim($_POST['body']) : '';
+    if ($heading_raw === '' || $body_raw === '' || strlen($heading_raw) > 255 || strlen($body_raw) > 200000)
+      stderr('Error', "Field is blank or length too long! <a href='admin.php?action=rules'>Go Back</a>");
+    $heading = sqlesc(strip_tags($heading_raw));
+    $body = sqlesc(strip_tags($body_raw));
     
     $sql = "INSERT INTO rules (cid, heading, body, ctime) VALUES ($cat_id, $heading, $body, ".TIME_NOW."+(3600*24*3))";
 
@@ -392,7 +428,7 @@ function Do_Rules_Add()
 
 function New_Cat_Form()
 {
-    global $CURUSER, $lang;
+    global $CURUSER, $lang, $rules_csrf;
     
     $htmlout = '';
     
@@ -402,6 +438,7 @@ function New_Cat_Form()
 
     <form name='inputform' method='post' action='admin.php?action=rules'>
     <input type='hidden' name='mode' value='cat_add' />
+    <input type='hidden' name='csrf_token' value='" . htmlsafechars($rules_csrf) . "' />
     
     <input type='text' value='' name='rcat_name' style='width:380px;' />
     
@@ -425,7 +462,7 @@ function New_Cat_Form()
 
 function New_rules_Form()
 {
-    global $CURUSER, $lang;
+    global $CURUSER, $lang, $TBDEV, $rules_csrf;
     
     $htmlout = '';
     
@@ -438,6 +475,7 @@ function New_rules_Form()
     $htmlout .= "<h2>Add A New section</h2>
     <form name='inputform' method='post' action='admin.php?action=rules'>
     <input type='hidden' name='mode' value='takeadd_rules' />
+    <input type='hidden' name='csrf_token' value='" . htmlsafechars($rules_csrf) . "' />
 
     <input type='text' value='' name='heading' style='width:380px;' /><br /><br />
 
@@ -446,7 +484,7 @@ function New_rules_Form()
 
     while( $v = mysql_fetch_assoc($sql) ) 
     {
-        $htmlout .= "<option value='{$v['cid']}'>{$v['rcat_name']}</option>";
+        $htmlout .= "<option value='" . (int) $v['cid'] . "'>" . htmlsafechars($v['rcat_name']) . "</option>";
     }
 
     $htmlout .= "</select><br /><br />

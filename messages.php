@@ -33,10 +33,10 @@ define('PM_DELETED',0); // Message was deleted
 define('PM_INBOX',1); // Message located in Inbox for reciever
 define('PM_SENTBOX',-1); // GET value for sent box
 // Determine action
-$action = isset($_GET['action']) ? (string) $_GET['action'] : false;
+$action = isset($_GET['action']) && is_string($_GET['action']) ? $_GET['action'] : false;
 if (!$action)
 {
-	$action = isset($_POST['action']) ? (string) $_POST['action'] : 'viewmailbox';
+		$action = isset($_POST['action']) && is_string($_POST['action']) ? $_POST['action'] : 'viewmailbox';
 	//if (!$action)
 		//$action = 'viewmailbox';
 }
@@ -77,27 +77,27 @@ if (!$action)
     $image_width = $pm_perc > 0 ? round($pm_perc * 2.5) : 1;
     if($image_width > 250)
         $image_width = 250;
- 
-    
+
+
     $HTMLOUT = '';
-    
+
     $HTMLOUT .= "<!-- <script type='text/javascript' src='js/checkall.js'></script> -->
     <!-- check all -->
     <script type='text/javascript'>
     function checkAll(field) {
        if (field.CheckAll.checked == true) {
           for (i = 0; i < field.length; i++) {
-          
+
                 field[i].checked = true;
              }
-          
+
        }
        else {
           for (i = 0; i < field.length; i++) {
-          
+
                 field[i].checked = false;
              }
-          
+
        }
     }
     </script>
@@ -122,7 +122,7 @@ if (!$action)
                 <td align='right' valign='middle' width='33%'>100%</td>
               </tr>
             </tbody></table><br />
-            
+
     <table border='0' cellpadding='4' cellspacing='0' width='737'>
     <tr><td align='right'>".insertJumpTo($mailbox)."</td></tr>
     </table>
@@ -180,7 +180,7 @@ if (!$action)
           $friend = mysql_num_rows($r);
 
 
-          if ($friend) 
+          if ($friend)
           {
             $username .= "&nbsp;<form method='post' action='friends.php?id=" . (int) $CURUSER['id'] . "&amp;action=delete' style='display:inline;'>
               <input type='hidden' name='csrf_token' value='" . htmlsafechars($friends_csrf) . "' />
@@ -216,7 +216,7 @@ if (!$action)
         {
           $username = "System";
         }
-        
+
         $subject = htmlsafechars($row['subject']);
 
         if (strlen($subject) <= 0)
@@ -232,7 +232,7 @@ if (!$action)
         {
           $HTMLOUT .= "<tr>\n<td align='center'><img src='pic/readpm.gif' title='{$lang['messages_read']}e' alt='{$lang['messages_read_title']}' /></td>\n";
         }
-        
+
         $HTMLOUT .= "<td align='left'>
         <a href='messages.php?action=viewmessage&amp;id={$row['id']}'>$subject</a></td>
         <td align='left'>$username</td>
@@ -243,7 +243,7 @@ if (!$action)
 
     $HTMLOUT .= "<tr class='colhead'>
     <td colspan='5' align='right' class='colhead'>
-    <input type='submit' name='move' value='{$lang['messages_move']}' class='btn' /> 
+    <input type='submit' name='move' value='{$lang['messages_move']}' class='btn' />
     <select name='box'>
         <option value='1'>{$lang['messages_inbox']}</option>";
 
@@ -269,11 +269,11 @@ if (!$action)
     <div align='right'>
     <a href='messages.php'>{$lang['messages_return']}</a>
     </div></td></tr></table>";
-    
+
     /////////////////// HTML OUTPUT ///////////////////////////////////////
     print stdhead($mailbox_name, false) . $HTMLOUT . stdfoot();
     }
-    
+
     if ($action == "viewmessage")
     {
       $pm_id = (int) $_GET['id'];
@@ -291,7 +291,7 @@ if (!$action)
 
       // Prepare for displaying message
       $message = mysql_fetch_assoc($res) or header("Location: messages.php");
-      
+
       if ($message['sender'] == $CURUSER['id'])
       {
         // Display to
@@ -317,10 +317,10 @@ if (!$action)
           $reply = "<a href='sendmessage.php?receiver={$message['sender']}&amp;replyto={$pm_id}'><span class='btn'>{$lang['messages_reply']}</span></a>";
         }
       }
-      
+
       $body = format_comment($message['msg']);
       $added = get_date($message['added'], '');
-      
+
       if ($CURUSER['class'] >= UC_MODERATOR && $message['sender'] == $CURUSER['id'])
       {
         $unread = ($message['unread'] == 'yes' ? "<span style='color: #FF0000;'><strong>{$lang['messages_new']}</strong></span>" : "");
@@ -329,9 +329,9 @@ if (!$action)
       {
         $unread = "";
       }
-      
+
       $subject = htmlsafechars($message['subject']);
-      
+
       if (strlen($subject) <= 0)
       {
         $subject = "{$lang['messages_no_subject']}";
@@ -344,7 +344,7 @@ if (!$action)
       }
 
       $HTMLOUT = '';
-      
+
       $HTMLOUT .= "<h1>{$subject}</h1>
       <table width='737' border='0' cellpadding='4' cellspacing='0'>
       <tr>
@@ -365,23 +365,23 @@ if (!$action)
       <input type='hidden' name='csrf_token' value='" . htmlsafechars($messages_csrf) . "' />
       <input type='hidden' name='id' value='" . (int) $pm_id . "' />
       Move to: <select name='box'><option value='1'>{$lang['messages_inbox']}</option>";
-      
+
       $res = mysql_query('select * FROM pmboxes WHERE userid=' . sqlesc($CURUSER['id']) . ' ORDER BY boxnumber') or sqlerr(__FILE__,__LINE__);
       while ($row = mysql_fetch_assoc($res))
       {
         $HTMLOUT .= "<option value='{$row['boxnumber']}'>" . htmlsafechars($row['name']) . "</option>\n";
       }
-      
+
       $HTMLOUT .= "</select> <input type='submit' name='move' value='{$lang['messages_move']}' class='btn' />
       </form></div>
       <span style='float:right;vertical-align:inherit'><a href='messages.php'><span class='btn'>{$lang['messages_return']}</span></a>&nbsp;<form action='messages.php?action=deletemessage' method='post' style='display:inline;'><input type='hidden' name='csrf_token' value='" . htmlsafechars($messages_csrf) . "' /><input type='hidden' name='id' value='" . (int) $pm_id . "' /><button type='submit' class='btn'>" . htmlsafechars($lang['messages_delete']) . "</button></form>&nbsp;{$reply}&nbsp;<a href='messages.php?action=forward&amp;id={$pm_id}'><span class='btn'>{$lang['messages_forward']}</span></a></span></td>
       </tr>
       </table>";
-      
+
       // Display message
       print stdhead("PM ($subject)", false). $HTMLOUT . stdfoot();
     }
-    
+
     if ($action === 'moveordel')
     {
       if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'messages'))
@@ -433,7 +433,7 @@ if (!$action)
           // Delete a single message
           $res = mysql_query("select * FROM messages WHERE id=" . sqlesc($pm_id)) or sqlerr(__FILE__,__LINE__);
           $message = mysql_fetch_assoc($res);
-          
+
           if ($message['receiver'] == $CURUSER['id'] && $message['saved'] == 'no')
           {
             mysql_query("DELETE FROM messages WHERE id=" . sqlesc($pm_id)) or sqlerr(__FILE__,__LINE__);
@@ -458,7 +458,7 @@ if (!$action)
           {
             $res = mysql_query("select * FROM messages WHERE id=" . sqlesc((int) $id));
             $message = mysql_fetch_assoc($res);
-            
+
             if ($message['receiver'] == $CURUSER['id'] && $message['saved'] == 'no')
             {
               mysql_query("DELETE FROM messages WHERE id=" . sqlesc((int) $id)) or sqlerr(__FILE__,__LINE__);
@@ -490,7 +490,7 @@ if (!$action)
       }
       stderr("{$lang['messages_error']}","{$lang['messages_no_action']}");
     }
-    
+
     if ($action === 'forward')
     {
     if ($_SERVER['REQUEST_METHOD'] == 'GET')
@@ -500,17 +500,17 @@ if (!$action)
 
       // Get the message
       $res = mysql_query("select * FROM messages WHERE id=" . sqlesc($pm_id) . " AND (receiver=" . sqlesc($CURUSER['id']) . " OR sender=" . sqlesc($CURUSER['id']) .") LIMIT 1") or sqlerr(__FILE__,__LINE__);
-      
+
       if (!$res)
       {
         stderr("{$lang['messages_error']}","{$lang['messages_access_forward']}");
       }
-      
+
       if (mysql_num_rows($res) == 0)
       {
         stderr("{$lang['messages_error']}","{$lang['messages_access_forward']}");
       }
-      
+
       $message = mysql_fetch_assoc($res);
 
       // Prepare variables
@@ -520,9 +520,9 @@ if (!$action)
 
       $res = mysql_query("select username FROM users WHERE id=" . sqlesc($orig) . " OR id=" . sqlesc($from)) or sqlerr(__FILE__,__LINE__);
       $orig2 = mysql_fetch_assoc($res);
-      
+
       $orig_name = "<a href='userdetails.php?id=$from'>{$orig2['username']}</a>";
-      
+
       if ($from == 0)
       {
         $from_name = "{$lang['messages_system']}";
@@ -537,7 +537,7 @@ if (!$action)
       $body = sprintf($lang['messages_original'], $from2['username']) . format_comment($message['msg']);
 
       $HTMLOUT = '';
-      
+
       $HTMLOUT .= "<h1>$subject</h1>
       <form action='messages.php' method='post'>
       <input type='hidden' name='action' value='forward' />
@@ -570,9 +570,9 @@ if (!$action)
       </tr>
       </table>
       </form>";
-      
+
         print stdhead($subject, false) . $HTMLOUT . stdfoot();
-      
+
       }
       else
       {
@@ -591,17 +591,17 @@ if (!$action)
 
         // Get the message
         $res = mysql_query("select * FROM messages WHERE id=" . sqlesc($pm_id) . " AND (receiver=" . sqlesc($CURUSER['id']) . " OR sender=" . sqlesc($CURUSER['id']) .") LIMIT 1") or sqlerr(__FILE__,__LINE__);
-        
+
         if (!$res)
         {
           stderr("{$lang['messages_error']}","{$lang['messages_access_forward']}");
         }
-        
+
         if (mysql_num_rows($res) == 0)
         {
           stderr("{$lang['messages_error']}","{$lang['messages_access_forward']}");
         }
-        
+
         $message = mysql_fetch_assoc($res);
 
         $subject = isset($_POST['subject']) && is_string($_POST['subject']) ? trim(strip_tags($_POST['subject'])) : '';
@@ -615,12 +615,12 @@ if (!$action)
         {
           stderr("{$lang['messages_error']}","{$lang['messages_no_user']}");
         }
-        
+
         if (mysql_num_rows($res) == 0)
         {
           stderr("{$lang['messages_error']}","{$lang['messages_no_user']}");
         }
-        
+
         $to = mysql_fetch_array($res);
         $to = $to[0];
 
@@ -685,15 +685,15 @@ if (!$action)
         stderr("{$lang['messages_success']}", "{$lang['messages_pm_forwarded']}");
       }
     }
-    
-    
+
+
     if ($action == "editmailboxes")
     {
-      $res = mysql_query("select * FROM pmboxes WHERE userid=" . sqlesc($CURUSER['id'])) or sqlerr(__FILE__,__LINE__);
+      $res = mysql_query('SELECT id, name, boxnumber FROM pmboxes WHERE userid=' . (int) $CURUSER['id'] . ' AND boxnumber >= 2 ORDER BY boxnumber') or sqlerr(__FILE__, __LINE__);
 
-      
+
       $HTMLOUT = '';
-      
+
       $HTMLOUT .= "<h1>{$lang['messages_edit_mb']}</h1>
       <table width='737' border='0' cellpadding='4' cellspacing='0'>
       <tr>
@@ -701,9 +701,10 @@ if (!$action)
       </tr>
       <tr>
       <td align='left'>{$lang['messages_extra']}<br />
-      <form action='messages.php' method='get'>
+      <form action='messages.php' method='post'>
       <input type='hidden' name='action' value='editmailboxes2' />
       <input type='hidden' name='action2' value='add' />
+      <input type='hidden' name='csrf_token' value='" . htmlsafechars($messages_csrf) . "' />
 
       <input type='text' name='new1' size='40' maxlength='14' /><br />
       <input type='text' name='new2' size='40' maxlength='14' /><br />
@@ -715,16 +716,17 @@ if (!$action)
       <td class='colhead' align='left'>{$lang['messages_mb_edit']}</td>
       </tr>
       <tr>
-      <td align='left'>{$lang['messages_vir_dir']} 
-      <form action='messages.php' method='get'>
+      <td align='left'>{$lang['messages_vir_dir']}
+      <form action='messages.php' method='post'>
       <input type='hidden' name='action' value='editmailboxes2' />
-      <input type='hidden' name='action2' value='edit' />";
+      <input type='hidden' name='action2' value='edit' />
+      <input type='hidden' name='csrf_token' value='" . htmlsafechars($messages_csrf) . "' />";
 
       if (!$res)
       {
         $HTMLOUT .= "<span align='center'><b>{$lang['messages_no_edit']}<b></span>";
       }
-      
+
       if (mysql_num_rows($res) == 0)
       {
         $HTMLOUT .= "<span align='center'><b>{$lang['messages_no_edit']}</b></span>";
@@ -733,137 +735,170 @@ if (!$action)
       {
         while ($row = mysql_fetch_assoc($res))
         {
-          $id = $row['id'];
+          $id = (int) $row['id'];
           $name = htmlsafechars($row['name']);
           $HTMLOUT .= "<input type='text' name='edit$id' value='$name' size='40' maxlength='14' /><br />\n";
         }
-      
+
         $HTMLOUT .= "<input type='submit' value='{$lang['messages_edit']}' class='btn' />";
       }
-      
+
       $HTMLOUT .= "</form></td>
       </tr>
       </table>";
-      
+
       print stdhead("{$lang['messages_edit_mb']}s", false) . $HTMLOUT . stdfoot();
     }
-    
-    
-    
-    if ($action == "editmailboxes2")
+
+
+
+    if ($action === 'editmailboxes2')
     {
-      $action2 = (string) $_GET['action2'];
-      
-      if (!$action2)
+      if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'messages'))
       {
-      stderr("Error","No action.");
+        http_response_code(400);
+        exit('Invalid mailbox request.');
       }
-    
-      if ($action2 == "add")
+      if (!security_rate_limit('message-mailboxes', security_client_identity() . '|' . (int) $CURUSER['id'], 20, 300))
       {
-        $name1 = $_GET['new1'];
-        $name2 = $_GET['new2'];
-        $name3 = $_GET['new3'];
-
-        // Get current max box number
-        $res = mysql_query("select MAX(boxnumber) FROM pmboxes WHERE userid=" . sqlesc($CURUSER['id']));
-        $box = mysql_fetch_array($res);
-        $box = (int) $box[0];
-        
-        if ($box < 2)
-        {
-          $box = 1;
-        }
-
-        if (strlen($name1) > 0)
-        {
-          ++$box;
-          @mysql_query("INSERT INTO pmboxes (userid, name, boxnumber) VALUES (" . sqlesc($CURUSER['id']) . ", " . sqlesc($name1) . ", $box)") or sqlerr(__FILE__,__LINE__);
-        }
-        
-        if (strlen($name2) > 0)
-        {
-          ++$box;
-          @mysql_query("INSERT INTO pmboxes (userid, name, boxnumber) VALUES (" . sqlesc($CURUSER['id']) . ", " . sqlesc($name2) . ", $box)") or sqlerr(__FILE__,__LINE__);
-        }
-        
-        if (strlen($name3) > 0)
-        {
-          ++$box;
-          @mysql_query("INSERT INTO pmboxes (userid, name, boxnumber) VALUES (" . sqlesc($CURUSER['id']) . ", " . sqlesc($name3) . ", $box)") or sqlerr(__FILE__,__LINE__);
-        }
-        
-        header("Location: messages.php?action=editmailboxes");
-        exit();
+        http_response_code(429);
+        exit('Too many mailbox requests.');
       }
-        
-      if ($action2 == "edit");
+
+      $action2 = isset($_POST['action2']) && is_string($_POST['action2']) ? $_POST['action2'] : '';
+      if (!in_array($action2, array('add', 'edit'), true))
+        stderr($lang['messages_error'], $lang['messages_no_action']);
+
+      if ($action2 === 'add')
       {
-        $res = mysql_query("select * FROM pmboxes WHERE userid=" . sqlesc($CURUSER['id']));
-        
-        if (!$res)
+        $names = array();
+        foreach (array('new1', 'new2', 'new3') as $field)
         {
-          stderr("{$lang['messages_error']}","{$lang['messages_no_mb_edit']}");
+          $value = isset($_POST[$field]) ? messages_normalize_mailbox_name($_POST[$field]) : '';
+          if ($value === false)
+            stderr($lang['messages_error'], $lang['messages_invalid_box']);
+          if ($value !== '')
+            $names[] = $value;
         }
-        
-        if (mysql_num_rows($res) == 0)
+        if (!$names)
+          stderr($lang['messages_error'], $lang['messages_invalid_box']);
+
+        $uid = (int) $CURUSER['id'];
+        $count_stmt = tbdev_db_prepare_execute('SELECT COUNT(*) FROM pmboxes WHERE userid = ? AND boxnumber >= 2', 'i', array($uid));
+        if (!$count_stmt)
+          sqlerr(__FILE__, __LINE__);
+        $count_result = mysqli_stmt_get_result($count_stmt);
+        $count_row = $count_result ? mysqli_fetch_row($count_result) : false;
+        if ($count_result)
+          mysqli_free_result($count_result);
+        mysqli_stmt_close($count_stmt);
+        if (!$count_row || (int) $count_row[0] + count($names) > 20)
+          stderr($lang['messages_error'], $lang['messages_invalid_box']);
+
+        $max_stmt = tbdev_db_prepare_execute('SELECT COALESCE(MAX(boxnumber), 1) FROM pmboxes WHERE userid = ?', 'i', array($uid));
+        if (!$max_stmt)
+          sqlerr(__FILE__, __LINE__);
+        $max_result = mysqli_stmt_get_result($max_stmt);
+        $max_row = $max_result ? mysqli_fetch_row($max_result) : false;
+        if ($max_result)
+          mysqli_free_result($max_result);
+        mysqli_stmt_close($max_stmt);
+        if (!$max_row)
+          sqlerr(__FILE__, __LINE__);
+        $box = max(1, (int) $max_row[0]);
+
+        foreach ($names as $name)
         {
-          stderr("{$lang['messages_error']}","{$lang['messages_no_mb_edit']}");
+          ++$box;
+          $insert_stmt = tbdev_db_prepare_execute('INSERT INTO pmboxes (userid, name, boxnumber) VALUES (?, ?, ?)', 'isi', array($uid, $name, $box));
+          if (!$insert_stmt)
+            sqlerr(__FILE__, __LINE__);
+          mysqli_stmt_close($insert_stmt);
+        }
+
+        header('Location: messages.php?action=editmailboxes');
+        exit;
+      }
+
+      $res = mysql_query('SELECT id, name, boxnumber FROM pmboxes WHERE userid=' . (int) $CURUSER['id'] . ' AND boxnumber >= 2') or sqlerr(__FILE__, __LINE__);
+      if (mysql_num_rows($res) == 0)
+        stderr($lang['messages_error'], $lang['messages_no_mb_edit']);
+
+      while ($row = mysql_fetch_assoc($res))
+      {
+        $box_id = (int) $row['id'];
+        $box_number = (int) $row['boxnumber'];
+        $field = 'edit' . $box_id;
+        if (!array_key_exists($field, $_POST))
+          continue;
+        $name = messages_normalize_mailbox_name($_POST[$field]);
+        if ($name === false)
+          stderr($lang['messages_error'], $lang['messages_invalid_box']);
+        if ($name === $row['name'])
+          continue;
+
+        $uid = (int) $CURUSER['id'];
+        if ($name !== '')
+        {
+          $update_stmt = tbdev_db_prepare_execute('UPDATE pmboxes SET name = ? WHERE id = ? AND userid = ? AND boxnumber >= 2 LIMIT 1', 'sii', array($name, $box_id, $uid));
+          if (!$update_stmt)
+            sqlerr(__FILE__, __LINE__);
+          mysqli_stmt_close($update_stmt);
         }
         else
         {
-          while ($row = mysql_fetch_assoc($res))
-          {
-            if (isset($_GET['edit' . $row['id']]))
-            {
-              if ($_GET['edit' . $row['id']] != $row['name'])
-              {
-                // Do something
-                if (strlen($_GET['edit' . $row['id']]) > 0)
-                {
-                  // Edit name
-                  @mysql_query("UPDATE pmboxes SET name=" . sqlesc($_GET['edit' . $row['id']]) . " WHERE id=" . sqlesc($row['id']) . " LIMIT 1");
-                }
-                else
-                {
-                  // Delete
-                  @mysql_query("DELETE FROM pmboxes WHERE id=" . sqlesc($row['id']) . " LIMIT 1");
-                  // Delete all messages from this folder (uses multiple queries because we can only perform security checks in WHERE clauses)
-                  @mysql_query("UPDATE messages SET location=0 WHERE saved='yes' AND location=" . sqlesc($row['boxnumber']) . " AND receiver=" . sqlesc($CURUSER['id']));
-                  @mysql_query("UPDATE messages SET saved='no' WHERE saved='yes' AND sender=" . sqlesc($CURUSER['id']));
-                  @mysql_query("DELETE FROM messages WHERE saved='no' AND location=" . sqlesc($row['boxnumber']) . " AND receiver=" . sqlesc($CURUSER['id']));
-                  @mysql_query("DELETE FROM messages WHERE location=0 AND saved='yes' AND sender=" . sqlesc($CURUSER['id']));
-                }
-              }
-            }
-          }
-        header("Location: messages.php?action=editmailboxes");
-        exit();
+          $delete_stmt = tbdev_db_prepare_execute('DELETE FROM pmboxes WHERE id = ? AND userid = ? AND boxnumber >= 2 LIMIT 1', 'ii', array($box_id, $uid));
+          if (!$delete_stmt)
+            sqlerr(__FILE__, __LINE__);
+          mysqli_stmt_close($delete_stmt);
+
+          $move_stmt = tbdev_db_prepare_execute("UPDATE messages SET location = 0 WHERE saved = 'yes' AND location = ? AND receiver = ?", 'ii', array($box_number, $uid));
+          if (!$move_stmt)
+            sqlerr(__FILE__, __LINE__);
+          mysqli_stmt_close($move_stmt);
+
+          $purge_stmt = tbdev_db_prepare_execute("DELETE FROM messages WHERE saved = 'no' AND location = ? AND receiver = ?", 'ii', array($box_number, $uid));
+          if (!$purge_stmt)
+            sqlerr(__FILE__, __LINE__);
+          mysqli_stmt_close($purge_stmt);
         }
       }
+
+      header('Location: messages.php?action=editmailboxes');
+      exit;
     }
-    
-    
-    
-    if ($action == "deletemessage")
+
+    if ($action === "deletemessage")
     {
-      $pm_id = (int) $_GET['id'];
+      if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'messages'))
+      {
+        http_response_code(400);
+        exit('Invalid message deletion request.');
+      }
+      if (!security_rate_limit('message-delete', security_client_identity() . '|' . (int) $CURUSER['id'], 30, 300))
+      {
+        http_response_code(429);
+        exit('Too many message deletion requests.');
+      }
+      $pm_id = isset($_POST['id']) && !is_array($_POST['id']) ? (int) $_POST['id'] : 0;
+      if ($pm_id < 1)
+        stderr($lang['messages_error'], $lang['messages_no_id']);
 
       // Delete message
       $res = mysql_query("select * FROM messages WHERE id=" . sqlesc($pm_id)) or sqlerr(__FILE__,__LINE__);
-      
+
       if (!$res)
       {
         stderr("{$lang['messages_error']}","{$lang['messages_no_id']}");
       }
-      
+
       if (mysql_num_rows($res) == 0)
       {
         stderr("{$lang['messages_error']}","{$lang['messages_no_id']}");
       }
-      
+
       $message = mysql_fetch_assoc($res);
-      
+
       if ($message['receiver'] == $CURUSER['id'] && $message['saved'] == 'no')
       {
         $res2 = mysql_query("DELETE FROM messages WHERE id=" . sqlesc($pm_id)) or sqlerr(__FILE__,__LINE__);
@@ -880,12 +915,16 @@ if (!$action)
       {
         $res2 = mysql_query("UPDATE messages SET saved='no' WHERE id=" . sqlesc($pm_id)) or sqlerr(__FILE__,__LINE__);
       }
-      
+      else
+      {
+        stderr($lang['messages_error'], $lang['messages_no_delete']);
+      }
+
       if (!$res2)
       {
         stderr("{$lang['messages_error']}","{$lang['messages_no_delete']}");
       }
-      
+
       if (mysql_affected_rows() == 0)
       {
         stderr("{$lang['messages_error']}","{$lang['messages_no_delete']}");
@@ -898,19 +937,36 @@ if (!$action)
     }
 
 //----- FUNCTIONS ------
+function messages_normalize_mailbox_name($value)
+{
+  if (!is_string($value))
+    return false;
+
+  $normalized = preg_replace('/[[:space:]]+/u', ' ', $value);
+  if ($normalized === null)
+    return false;
+  $value = trim($normalized);
+  if ($value === '')
+    return '';
+  if (strlen($value) > 60 || !preg_match('/\A[\p{L}\p{N}][\p{L}\p{N} _-]{0,13}\z/u', $value))
+    return false;
+
+  return $value;
+}
+
 function insertJumpTo($selected = 0)
     {
       global $CURUSER, $lang;
-      
+
       $htmlout = '';
-      
+
       $res = mysql_query("select * FROM pmboxes WHERE userid=" . sqlesc($CURUSER['id']) ." ORDER BY boxnumber");
-      
+
       $htmlout .= "<form action='messages.php' method='get'>
       <input type='hidden' name='action' value='viewmailbox' />{$lang['messages_jump']} <select name='box'>
       <option value='1'" .($selected == PM_INBOX ? " selected='selected'" : "").">{$lang['messages_inbox']}</option>
       <option value='-1'" .($selected == PM_SENTBOX ? " selected='selected'" : "").">{$lang['messages_sentbox']}</option>";
-      
+
       while ($row = mysql_fetch_assoc($res))
       {
         if ($row['boxnumber'] == $selected)
@@ -923,7 +979,7 @@ function insertJumpTo($selected = 0)
         }
       }
       $htmlout .= "</select> <input type='submit' value='{$lang['messages_go']}' class='btn' /></form>";
-      
+
       return $htmlout;
 }
 ?>

@@ -23,6 +23,8 @@ require_once "include/user_functions.php";
 require_once "include/bbcode_functions.php";
 require_once "include/html_functions.php";
 
+security_session_start();
+$rating_csrf = security_csrf_token('torrent-rating');
 
 function ratingpic($num) {
     global $TBDEV;
@@ -201,7 +203,7 @@ $xrow = mysql_fetch_assoc($xres);
 if (!empty($xrow))
 					$s .= "(you rated this torrent as \"" . $xrow["rating"] . " - " . $ratings[$xrow["rating"]] . "\")";
 				else {
-					$s .= "<form method=\"post\" action=\"takerate.php\"><input type=\"hidden\" name=\"id\" value=\"$id\" />\n";
+					$s .= "<form method=\"post\" action=\"takerate.php\"><input type=\"hidden\" name=\"csrf_token\" value=\"$rating_csrf\" /><input type=\"hidden\" name=\"id\" value=\"" . (int) $id . "\" />\n";
 					$s .= "<select name=\"rating\">\n";
 					$s .= "<option value=\"0\">(add rating)</option>\n";
 					foreach ($ratings as $k => $v) {
