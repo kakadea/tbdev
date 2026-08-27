@@ -1,0 +1,79 @@
+flowchart LR
+    Browser[Browser / BitTorrent clients]
+    Web[Apache/Nginx PHP web entrypoints]
+    Announce[announce.php
+BitTorrent announce endpoint]
+    Scrape[scrape.php
+BitTorrent scrape endpoint]
+    Bootstrap[include/bittorrent.php
+bootstrap + auth + HTML helpers]
+    Config[include/config.php
+legacy global configuration]
+    UserFns[include/user_functions.php]
+    TorrentFns[include/torrenttable_functions.php
+include/my_torrenttable_functions.php]
+    ForumRouter[forums.php
+forum front controller]
+    ForumMods[forums/*
+forum modules]
+    AdminRouter[admin.php
+admin front controller]
+    AdminMods[admin/*
+admin modules]
+    Upload[upload.php -> takeupload.php
+torrent creation flow]
+    Download[download.php
+protected torrent download]
+    Cleanup[croncleanloader.php / include/cleanup/*
+maintenance and cleanup]
+    Install[install/index.php
+legacy installer]
+    DB[(MariaDB/MySQL
+legacy MyISAM schema)]
+    TorrentFiles[(torrents/
+.torrent payloads)]
+    Cache[(cache/*.php
+precomputed arrays)]
+    Logs[(logs/
+SQL/application logs)]
+    Mail["email-gateway.php<br/>mail / activation / recovery"]
+
+    Browser --> Web
+    Web --> Bootstrap
+    Bootstrap --> Config
+    Bootstrap --> UserFns
+    Bootstrap --> TorrentFns
+    Bootstrap --> DB
+    Bootstrap --> Cache
+    Web --> ForumRouter
+    ForumRouter --> ForumMods
+    ForumMods --> DB
+    Web --> AdminRouter
+    AdminRouter --> AdminMods
+    AdminMods --> DB
+    Web --> Upload
+    Upload --> TorrentFiles
+    Upload --> DB
+    Web --> Download
+    Download --> TorrentFiles
+    Download --> DB
+    Web --> Mail
+    Mail --> DB
+    Browser --> Announce
+    Browser --> Scrape
+    Announce --> DB
+    Scrape --> DB
+    Announce --> TorrentFiles
+    Web --> Cleanup
+    Cleanup --> DB
+    Cleanup --> Cache
+    Cleanup --> Logs
+    Browser --> Install
+    Install --> Config
+    Install --> Announce
+    Install --> DB
+
+    classDef critical fill:#ffe3e3,stroke:#b00020,stroke-width:2px;
+    classDef data fill:#e3f2fd,stroke:#1565c0;
+    class Announce,Install,AdminRouter,Config critical;
+    class DB,TorrentFiles,Cache,Logs data;
