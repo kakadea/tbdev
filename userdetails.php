@@ -23,6 +23,7 @@ require_once "include/bbcode_functions.php";
 
 security_session_start();
 $friends_csrf = security_csrf_token('friends');
+$modtask_csrf = security_csrf_token('modtask');
 dbconn(false);
 
 loggedinorreturn();
@@ -298,9 +299,10 @@ function maketable($res)
     {
       $HTMLOUT .= begin_frame("{$lang['userdetails_edit_user']}", true);
       $HTMLOUT .= "<form method='post' action='modtask.php'>\n";
+      $HTMLOUT .= "<input type='hidden' name='csrf_token' value='" . htmlsafechars($modtask_csrf) . "' />\n";
       $HTMLOUT .= "<input type='hidden' name='action' value='edituser' />\n";
-      $HTMLOUT .= "<input type='hidden' name='userid' value='$id' />\n";
-      $HTMLOUT .= "<input type='hidden' name='returnto' value='userdetails.php?id=$id' />\n";
+      $HTMLOUT .= "<input type='hidden' name='userid' value='" . (int) $id . "' />\n";
+      $HTMLOUT .= "<input type='hidden' name='returnto' value='/userdetails.php?id=" . (int) $id . "' />\n";
       $HTMLOUT .= "<table class='main' border='1' cellspacing='0' cellpadding='5'>\n";
       $HTMLOUT .= "<tr><td class='rowhead'>{$lang['userdetails_title']}</td><td colspan='2' align='left'><input type='text' size='60' name='title' value='" . htmlsafechars($user['title']) . "' /></td></tr>\n";
       $avatar = htmlsafechars($user["avatar"]);

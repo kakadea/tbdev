@@ -19,6 +19,7 @@
 require_once "include/bittorrent.php";
 require_once "include/user_functions.php";
 
+security_session_start();
 dbconn(false);
 
 loggedinorreturn();
@@ -28,13 +29,20 @@ $lang = load_language('modtask');
 if ($CURUSER['class'] < UC_MODERATOR) stderr("{$lang['modtask_user_error']}", "{$lang['modtask_try_again']}");
 
 // Correct call to script
-if ((isset($_POST['action'])) && ($_POST['action'] == "edituser"))
+if (isset($_POST['action']) && $_POST['action'] === 'edituser')
     {
+    if (!security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'modtask'))
+    {
+      http_response_code(400);
+      exit('Invalid moderation request.');
+    }
+    if (!security_rate_limit('modtask-edituser', security_client_identity() . '|' . (int) $CURUSER['id'], 60, 300))
+    {
+      http_response_code(429);
+      exit('Too many moderation requests.');
+    }
     // Set user id
-    if (isset($_POST['userid'])) $userid = $_POST['userid'];
-    else stderr("{$lang['modtask_user_error']}", "{$lang['modtask_try_again']}");
-
-    // and verify...
+    $userid = isset($_POST['userid']) && !is_array($_POST['userid']) ? (int) $_POST['userid'] : 0;
     if (!is_valid_id($userid)) stderr("{$lang['modtask_error']}", "{$lang['modtask_bad_id']}");
 
     // Fetch current user data...
@@ -47,15 +55,18 @@ if ((isset($_POST['action'])) && ($_POST['action'] == "edituser"))
     
     $updateset = array();
 
-    $modcomment = (isset($_POST['modcomment']) && $CURUSER['class'] == UC_SYSOP) ? $_POST['modcomment'] : $user['modcomment'];
+    $submitted_modcomment = isset($_POST['modcomment']) && is_string($_POST['modcomment']) ? trim($_POST['modcomment']) : $user['modcomment'];
+    if (strlen($submitted_modcomment) > 20000)
+      stderr($lang['modtask_user_error'], 'Moderator comment is too long.');
+    $modcomment = ($CURUSER['class'] == UC_SYSOP) ? $submitted_modcomment : $user['modcomment'];
 
     // Set class
 
-    if ((isset($_POST['class'])) && (($class = $_POST['class']) != $user['class']))
+    if (isset($_POST['class']) && !is_array($_POST['class']) && (($class = (int) $_POST['class']) != $user['class']))
     {
       if ($class >= UC_SYSOP || ($class >= $CURUSER['class']) || ($user['class'] >= $CURUSER['class']))
         stderr("{$lang['modtask_user_error']}", "{$lang['modtask_try_again']}");
-      if (!is_valid_user_class($class) || $CURUSER["class"] <= $_POST['class']) stderr( ("Error"), "Bad class :P");
+      if (!is_valid_user_class($class) || $CURUSER['class'] <= $class) stderr('Error', 'Bad class.');
 
     // Notify user
     $what = ($class > $user['class'] ? "{$lang['modtask_promoted']}" : "{$lang['modtask_demoted']}");
@@ -69,7 +80,7 @@ if ((isset($_POST['action'])) && ($_POST['action'] == "edituser"))
     }
 
     // Clear Warning - Code not called for setting warning
-    if (isset($_POST['warned']) && (($warned = $_POST['warned']) != $user['warned']))
+    if (isset($_POST['warned']) && is_string($_POST['warned']) && in_array($_POST['warned'], array('yes', 'no'), true) && (($warned = $_POST['warned']) != $user['warned']))
     {
     $updateset[] = "warned = " . sqlesc($warned);
     $updateset[] = "warneduntil = 0";
@@ -83,10 +94,12 @@ if ((isset($_POST['action'])) && ($_POST['action'] == "edituser"))
     }
 
     // Set warning - Time based
-    if (isset($_POST['warnlength']) && ($warnlength = 0 + $_POST['warnlength']))
+    if (isset($_POST['warnlength']) && !is_array($_POST['warnlength']) && ($warnlength = (int) $_POST['warnlength']) > 0)
     {
-    unset($warnpm);
-    if (isset($_POST['warnpm'])) $warnpm = $_POST['warnpm'];
+    $warnlength = min($warnlength, 255);
+    $warnpm = isset($_POST['warnpm']) && is_string($_POST['warnpm']) ? trim($_POST['warnpm']) : '';
+    if (strlen($warnpm) > 5000)
+      stderr($lang['modtask_user_error'], 'Warning reason is too long.');
 
     if ($warnlength == 255)
     {
@@ -108,7 +121,7 @@ if ((isset($_POST['action'])) && ($_POST['action'] == "edituser"))
     }
 
     // Clear donor - Code not called for setting donor
-    if (isset($_POST['donor']) && (($donor = $_POST['donor']) != $user['donor']))
+    if (isset($_POST['donor']) && is_string($_POST['donor']) && in_array($_POST['donor'], array('yes', 'no'), true) && (($donor = $_POST['donor']) != $user['donor']))
     {
     $updateset[] = "donor = " . sqlesc($donor);
     $updateset[] = "donoruntil = 0";
@@ -122,8 +135,9 @@ if ((isset($_POST['action'])) && ($_POST['action'] == "edituser"))
     }
 
     // Set donor - Time based
-    if ((isset($_POST['donorlength'])) && ($donorlength = 0 + $_POST['donorlength']))
+    if (isset($_POST['donorlength']) && !is_array($_POST['donorlength']) && ($donorlength = (int) $_POST['donorlength']) > 0)
     {
+    $donorlength = min($donorlength, 255);
     if ($donorlength == 255)
     {
     $modcomment = get_date( TIME_NOW, 'DATE', 1 ) . "{$lang['modtask_donor_set']}" . $CURUSER['username'] . ".\n" . $modcomment;
@@ -144,9 +158,9 @@ if ((isset($_POST['action'])) && ($_POST['action'] == "edituser"))
     }
 
     // Enable / Disable
-    if ((isset($_POST['enabled'])) && (($enabled = $_POST['enabled']) != $user['enabled']))
+    if (isset($_POST['enabled']) && is_string($_POST['enabled']) && in_array($_POST['enabled'], array('yes', 'no'), true) && (($enabled = $_POST['enabled']) != $user['enabled']))
     {
-    if ($enabled == 'yes')
+    if ($enabled === 'yes')
     $modcomment = get_date( TIME_NOW, 'DATE', 1 ) . " {$lang['modtask_enabled']}" . $CURUSER['username'] . ".\n" . $modcomment;
     else
     $modcomment = get_date( TIME_NOW, 'DATE', 1 ) . "{$lang['modtask_disabled']}" . $CURUSER['username'] . ".\n" . $modcomment;
@@ -175,9 +189,11 @@ if ((isset($_POST['action'])) && ($_POST['action'] == "edituser"))
     } */
 
     // Change Custom Title
-    if ((isset($_POST['title'])) && (($title = $_POST['title']) != ($curtitle = $user['title'])))
+    if (isset($_POST['title']) && is_string($_POST['title']) && (($title = trim($_POST['title'])) != ($curtitle = $user['title'])))
     {
-    $modcomment = get_date( TIME_NOW, 'DATE', 1 ) . "{$lang['modtask_custom_title']}'".$title."' from '".$curtitle."'{$lang['modtask_by']}" . $CURUSER['username'] . ".\n" . $modcomment;
+    if (strlen($title) > 100)
+      stderr($lang['modtask_user_error'], 'Custom title is too long.');
+    $modcomment = get_date(TIME_NOW, 'DATE', 1) . "{$lang['modtask_custom_title']}'" . $title . "' from '" . $curtitle . "'{$lang['modtask_by']}" . $CURUSER['username'] . ".\n" . $modcomment;
 
     $updateset[] = "title = " . sqlesc($title);
     }
@@ -187,7 +203,7 @@ if ((isset($_POST['action'])) && ($_POST['action'] == "edituser"))
     // passkeys by searching the mod comments of members.
 
     // Reset Passkey
-    if ((isset($_POST['resetpasskey'])) && ($_POST['resetpasskey']))
+    if (isset($_POST['resetpasskey']) && is_string($_POST['resetpasskey']) && $_POST['resetpasskey'] === 'yes')
     {
     $newpasskey = md5($user['username'].TIME_NOW.$user['passhash']);
     $modcomment = get_date( TIME_NOW, 'DATE', 1 ) . "{$lang['modtask_passkey']}".sqlesc($user['passkey'])."{$lang['modtask_reset']}".sqlesc($newpasskey)."{$lang['modtask_by']}" . $CURUSER['username'] . ".\n" . $modcomment;
@@ -255,12 +271,14 @@ if ((isset($_POST['action'])) && ($_POST['action'] == "edituser"))
     } */
 
     // Avatar Changed
-    if ((isset($_POST['avatar'])) && (($avatar = $_POST['avatar']) != ($curavatar = $user['avatar'])))
+    if (isset($_POST['avatar']) && is_string($_POST['avatar']) && (($avatar = $_POST['avatar']) != ($curavatar = $user['avatar'])))
     {
       
-      $avatar = trim( urldecode( $avatar ) );
-  
-      if ( preg_match( "/^http:\/\/$/i", $avatar ) 
+      $avatar = trim(urldecode($avatar));
+      if ($avatar !== '')
+        stderr($lang['modtask_user_error'], 'Remote avatars are disabled.');
+
+      if ( preg_match( "/^http:\/\/$/i", $avatar )
         or preg_match( "/[?&;]/", $avatar ) 
         or preg_match("#javascript:#is", $avatar ) 
         or !preg_match("#^https?://(?:[^<>*\"]+|[a-z0-9/\._\-!]+)$#iU", $avatar ) 
@@ -328,15 +346,16 @@ if ((isset($_POST['action'])) && ($_POST['action'] == "edituser"))
 
     // Add ModComment to the update set...
     // Add ModComment... (if we changed something we update otherwise we dont include this..)
-    if (($CURUSER['class'] == UC_SYSOP && ($user['modcomment'] != $_POST['modcomment'] || $modcomment!=$_POST['modcomment'])) || ($CURUSER['class']<UC_SYSOP && $modcomment != $user['modcomment']))
+    if (($CURUSER['class'] == UC_SYSOP && ($user['modcomment'] != $submitted_modcomment || $modcomment != $submitted_modcomment)) || ($CURUSER['class'] < UC_SYSOP && $modcomment != $user['modcomment']))
     $updateset[] = "modcomment = " . sqlesc($modcomment);
 
     //mysql_query("UPDATE users SET " . implode(", ", $updateset) . " WHERE id=".sqlesc($userid)) or sqlerr(__FILE__, __LINE__);
     if (sizeof($updateset)>0) 
       @mysql_query("UPDATE users SET  " . implode(", ", $updateset) . " WHERE id=$userid") or sqlerr(__FILE__, __LINE__);
    
-    $returnto = $_POST["returnto"];
-    header("Location: {$TBDEV['baseurl']}/$returnto");
+    $returnto = security_validate_return_to(isset($_POST['returnto']) ? $_POST['returnto'] : '', $TBDEV['baseurl'] . '/userdetails.php?id=' . (int) $userid);
+    header('Location: ' . $returnto);
+    exit;
 
     stderr("{$lang['modtask_user_error']}", "{$lang['modtask_try_again']}");
     }
