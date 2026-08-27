@@ -20,7 +20,8 @@
 
 function commenttable($rows)
 {
-	global $CURUSER, $TBDEV;
+	global $CURUSER, $TBDEV, $comment_csrf;
+	$comment_csrf = isset($comment_csrf) ? $comment_csrf : security_csrf_token('comment');
 
 	
 	$lang = load_language( 'torrenttable_functions' );
@@ -49,16 +50,26 @@ function commenttable($rows)
    		$htmlout .= "<a name='comm{$row["id"]}'><i>(".$lang["commenttable_orphaned"].")</i></a>\n";
 
 		$htmlout .= get_date( $row['added'],'');
-		$htmlout .= ($row["user"] == $CURUSER["id"] || get_user_class() >= UC_MODERATOR ? "- [<a href='comment.php?action=edit&amp;cid={$row['id']}'>".$lang["commenttable_edit"]."</a>]" : "") .
-			(get_user_class() >= UC_MODERATOR ? "- [<a href='comment.php?action=delete&amp;cid={$row['id']}'>".$lang["commenttable_delete"]."</a>]" : "") .
-			($row["editedby"] && get_user_class() >= UC_MODERATOR ? "- [<a href='comment.php?action=vieworiginal&amp;cid={$row['id']}'>".$lang["commenttable_view_original"]."</a>]" : "") . "</p>\n";
+			$actions = ($row['user'] == $CURUSER['id'] || get_user_class() >= UC_MODERATOR ? "- [<a href='comment.php?action=edit&amp;cid=" . (int) $row['id'] . "'>" . $lang['commenttable_edit'] . "</a>]" : '');
+			if (get_user_class() >= UC_MODERATOR)
+			{
+				$actions .= "- <form method='post' action='comment.php?action=delete' style='display:inline;'>
+					<input type='hidden' name='csrf_token' value='" . htmlsafechars($comment_csrf) . "' />
+					<input type='hidden' name='cid' value='" . (int) $row['id'] . "' />
+					<input type='hidden' name='sure' value='1' />
+					<button type='submit' class='btn'>" . htmlsafechars($lang['commenttable_delete']) . "</button>
+				</form>";
+			}
+			if ($row['editedby'] && get_user_class() >= UC_MODERATOR)
+				$actions .= "- [<a href='comment.php?action=vieworiginal&amp;cid=" . (int) $row['id'] . "'>" . $lang['commenttable_view_original'] . "</a>]";
+			$htmlout .= $actions . "</p>\n";
 		$avatar = ($CURUSER["avatars"] == "yes" ? htmlsafechars($row["avatar"]) : "");
 		
 		if (!$avatar)
 			$avatar = "{$TBDEV['pic_base_url']}default_avatar.gif";
 		$text = format_comment($row["text"]);
     if ($row["editedby"])
-    	$text .= "<p style='font-size:1px;' class='small'>".$lang["commenttable_last_edited_by"]." <a href='userdetails.php?id={$row['editedby']}'><b>{$row['username']}</b></a> ".$lang["commenttable_last_edited_at"]." ".get_date($row['editedat'],'DATE')."</p>\n";
+    $text .= "<p style='font-size:1px;' class='small'>" . $lang['commenttable_last_edited_by'] . " <a href='userdetails.php?id=" . (int) $row['editedby'] . "'><b>" . htmlsafechars($row['username']) . "</b></a> " . $lang['commenttable_last_edited_at'] . " " . get_date($row['editedat'], 'DATE') . "</p>\n";
 		$htmlout .= begin_table(true);
 		$htmlout .= "<tr valign='top'>\n";
 		$htmlout .= "<td style='width:150px; text-align:center; padding: 0px'><img width='{$row['av_w']}' height='{$row['av_h']}' src='{$avatar}' alt='' /></td>\n";
