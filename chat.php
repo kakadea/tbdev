@@ -1,6 +1,7 @@
 <?php
 
 require_once 'include/bittorrent.php';
+tbdev_retire_module('chat');
 require_once 'include/user_functions.php';
 
 dbconn();

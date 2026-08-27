@@ -1,192 +1,107 @@
 <?php
-/*
-+------------------------------------------------
-|   TBDev.net BitTorrent Tracker PHP
-|   =============================================
-|   by CoLdFuSiOn
-|   (c) 2003 - 2011 TBDev.Net
-|   http://www.tbdev.net
-|   =============================================
-|   svn: http://sourceforge.net/projects/tbdevnet/
-|   Licence Info: GPL
-+------------------------------------------------
-|   $Date$
-|   $Revision$
-|   $Author$
-|   $URL$
-+------------------------------------------------
-*/
-ob_start("ob_gzhandler");
+ob_start('ob_gzhandler');
 
-require_once "include/bittorrent.php";
-require_once "include/user_functions.php";
-require_once "include/cache_functions.php";
+require_once 'include/bittorrent.php';
+require_once 'include/user_functions.php';
+require_once 'include/cache_functions.php';
 
 dbconn(true);
-
 loggedinorreturn();
 
-    $lang = array_merge( load_language('global'), load_language('index') );
-    //$lang = ;
-    
-    $HTMLOUT = '';
-/*
-$a = @mysql_fetch_assoc(@mysql_query("SELECT id,username FROM users WHERE status='confirmed' ORDER BY id DESC LIMIT 1")) or die(mysql_error());
-if ($CURUSER)
-  $latestuser = "<a href='userdetails.php?id=" . $a["id"] . "'>" . $a["username"] . "</a>";
-else
-  $latestuser = $a['username'];
-*/
-$TBDEV['memcache_server'] = 'localhost';
-$TBDEV['memcache_port'] = 11211;
-$TBDEV['memcache'] = 1;
-$TBDEVCACHE = array();
+$lang = array_merge(load_language('global'), load_language('index'));
 
-  if( tbdev_cache_connect() )
-  {
-      print( 'The cache is not working as intended' );
-      exit();
-  }
-  
-  if( !$TBDEVCACHE['stats']= getCache( 'frontpagestats' ) )
-  {
-    $sql = @mysql_query( "SELECT seeder, COUNT(*) as cnt FROM peers GROUP BY seeder" );
-    
-    $TBDEVCACHE['stats'] = array('seeders'=>0, 'leechers'=>0);
-    
-    while( $row = mysql_fetch_assoc($sql) )
-    {
-      if($row['seeder'] == 'yes')
-      {
-        $TBDEVCACHE['stats']['seeders'] = $row['cnt'];
-      }
-      else
-      {
-        $TBDEVCACHE['stats']['leechers'] = $row['cnt'];
-      }
-    }
-    
-    $TBDEVCACHE['stats']['registered'] = number_format(get_row_count("users"));
-    //$unverified = number_format(get_row_count("users", "WHERE status='pending'"));
-    $TBDEVCACHE['stats']['torrents'] = number_format(get_row_count("torrents"));
-    //$dead = number_format(get_row_count("torrents", "WHERE visible='no'"));
-
-    if ($TBDEVCACHE['stats']['leechers'] == 0)
-    {
-      $TBDEVCACHE['stats']['ratio'] = 0;
-    }
-    else
-    {
-      $TBDEVCACHE['stats']['ratio'] = round($TBDEVCACHE['stats']['seeders'] / $TBDEVCACHE['stats']['leechers'] * 100);
-    }
-    $TBDEVCACHE['stats']['peers'] = number_format($TBDEVCACHE['stats']['seeders'] + $TBDEVCACHE['stats']['leechers']);
-    $TBDEVCACHE['stats']['seeders'] = number_format($TBDEVCACHE['stats']['seeders']);
-    $TBDEVCACHE['stats']['leechers'] = number_format($TBDEVCACHE['stats']['leechers']);
-    
-    
-    setCache( 'frontpagestats', $TBDEVCACHE['stats'], 10 );
-  }
-  //do_put( '12121212', $TBDEVCACHE['stats'], $ttl=60 );
-  //print_r( do_get( '12121212' ) );
-  //print_r( $TBDEVCACHE['stats'] );exit;
-  
-  //do_remove( '12121212' );
-  
-  
-  
-  if( !$TBDEVCACHE['news']= getCache( 'news' ) )
-  {
-    $sql = @mysql_query( "SELECT * FROM news WHERE added + ( 3600 *24 *45 ) >
-					".TIME_NOW." ORDER BY added DESC LIMIT 10" );
-	
-    while( $row = mysql_fetch_assoc($sql) )
-    {
-      $TBDEVCACHE['news'][ $row['id'] ] = $row;
-    }
-    
-    setCache( 'news', $TBDEVCACHE['news'], 30 );
-  }
-  
-  
-  //print_r(memcache_get_stats($memcache));exit;
-  $adminbutton = '';
-    
-    if (get_user_class() >= UC_ADMINISTRATOR)
-          $adminbutton = "&nbsp;<span style='float:right;'><a href='admin.php?action=news'>News page</a></span>\n";
-          
-    $HTMLOUT .= "<div style='text-align:left;width:80%;border:1px solid blue;padding:5px;'>
-    <div style='background:lightgrey;height:25px;'><span style='font-weight:bold;font-size:12pt;'>{$lang['news_title']}</span>{$adminbutton}</div><br />";
-      
-					
-    if( count($TBDEVCACHE['news']) > 0 )
-    {
-      require_once "include/bbcode_functions.php";
-
-      $button = "";
-      
-      foreach( $TBDEVCACHE['news'] as $array )
-      {
-        if (get_user_class() >= UC_ADMINISTRATOR)
-        {
-          $button = "<div style='float:right;'><a href='admin.php?action=news&amp;mode=edit&amp;newsid={$array['id']}'>{$lang['news_edit']}</a>&nbsp;<a href='admin.php?action=news&amp;mode=delete&amp;newsid={$array['id']}'>{$lang['news_delete']}</a></div>";
+$stats = getCache('frontpagestats');
+if (!is_array($stats)) {
+    $stats = array('seeders' => 0, 'leechers' => 0);
+    $peer_result = @mysql_query("SELECT seeder, COUNT(*) AS cnt FROM peers GROUP BY seeder");
+    if ($peer_result) {
+        while ($row = mysql_fetch_assoc($peer_result)) {
+            if (isset($row['seeder']) && $row['seeder'] === 'yes') {
+                $stats['seeders'] = (int) $row['cnt'];
+            } elseif (isset($row['cnt'])) {
+                $stats['leechers'] = (int) $row['cnt'];
+            }
         }
-        
-        $HTMLOUT .= "<div style='background:lightgrey;height:20px;'><span style='font-weight:bold;font-size:10pt;'>{$array['headline']}</span></div>\n";
-        
-        $HTMLOUT .= "<span style='color:grey;font-weight:bold;text-decoration:underline;'>".get_date( $array['added'],'DATE') . "</span>{$button}\n";
-        
-        $HTMLOUT .= "<div style='margin-top:10px;padding:5px;'>".format_comment($array['body'])."</div><hr />\n";
-        
-      
-      }
-     
     }
+    $stats['registered'] = (int) get_row_count('users');
+    $stats['torrents'] = (int) get_row_count('torrents');
+    $stats['peers'] = $stats['seeders'] + $stats['leechers'];
+    $stats['ratio'] = $stats['leechers'] > 0
+        ? round(($stats['seeders'] / $stats['leechers']) * 100)
+        : 0;
+    setCache('frontpagestats', $stats, 10);
+}
 
-    $HTMLOUT .= "</div><br />\n";
+$news = getCache('news');
+if (!is_array($news)) {
+    $news = array();
+    $news_result = @mysql_query(
+        'SELECT * FROM news WHERE added + (3600 * 24 * 45) > ' . TIME_NOW .
+        ' ORDER BY added DESC LIMIT 10'
+    );
+    if ($news_result) {
+        while ($row = mysql_fetch_assoc($news_result)) {
+            if (isset($row['id'])) {
+                $news[(int) $row['id']] = $row;
+            }
+        }
+        setCache('news', $news, 30);
+    }
+}
 
+$news_html = '';
+if (count($news) > 0) {
+    require_once 'include/bbcode_functions.php';
+    foreach ($news as $item) {
+        $headline = htmlsafechars(isset($item['headline']) ? $item['headline'] : 'News');
+        $body = isset($item['body']) ? format_comment($item['body']) : '';
+        $added = isset($item['added']) ? get_date($item['added'], 'DATE') : '';
+        $actions = '';
+        if (get_user_class() >= UC_ADMINISTRATOR && isset($item['id'])) {
+            $id = (int) $item['id'];
+            $actions = "<span class='card-actions'><a href='admin.php?action=news&amp;mode=edit&amp;newsid={$id}'>Edit</a><a href='admin.php?action=news&amp;mode=delete&amp;newsid={$id}'>Delete</a></span>";
+        }
+        $news_html .= "<article class='news-card'><div class='news-card-head'><h3>{$headline}</h3>{$actions}</div><p class='eyebrow'>{$added}</p><div class='news-card-body'>{$body}</div></article>";
+    }
+} else {
+    $news_html = "<div class='empty-state'><strong>No news yet.</strong><span>Use the admin area to publish the first tracker update.</span></div>";
+}
 
-    $HTMLOUT .= "<div style='text-align:left;width:80%;border:1px solid blue;padding:5px;'>
-    <div style='background:lightgrey;height:25px;'><span style='font-weight:bold;font-size:12pt;'>{$lang['stats_title']}</span></div><br />
-    
-      <table align='center' class='main' border='1' cellspacing='0' cellpadding='5'>
-      <tr>
-      <td class='rowhead'>{$lang['stats_regusers']}</td><td align='right'>{$TBDEVCACHE['stats']['registered']}</td>
-      </tr>
-      <!-- <tr><td class='rowhead'>{$lang['stats_unverified']}</td><td align=right>{unverified}</td></tr> -->
-      <tr>
-      <td class='rowhead'>{$lang['stats_torrents']}</td><td align='right'>{$TBDEVCACHE['stats']['torrents']}</td>
-      </tr>";
-      
-    if (isset($TBDEVCACHE['stats']['peers'])) 
-    { 
-      $HTMLOUT .= "<tr><td class='rowhead'>{$lang['stats_peers']}</td><td align='right'>{$TBDEVCACHE['stats']['peers']}</td></tr>
-      <tr><td class='rowhead'>{$lang['stats_seed']}</td><td align='right'>{$TBDEVCACHE['stats']['seeders']}</td></tr>
-      <tr><td class='rowhead'>{$lang['stats_leech']}</td><td align='right'>{$TBDEVCACHE['stats']['leechers']}</td></tr>
-      <tr><td class='rowhead'>{$lang['stats_sl_ratio']}</td><td align='right'>{$TBDEVCACHE['stats']['ratio']}</td></tr>";
-    } 
-    
-      $HTMLOUT .= "</table>
-      </div>";
+$admin_link = get_user_class() >= UC_ADMINISTRATOR
+    ? "<a class='text-link' href='admin.php?action=news'>Manage news</a>"
+    : '';
 
-/*
-<h2>Server load</h2>
-<table width='100%' border='1' cellspacing='0' cellpadding='1'0><tr><td align=center>
-<table class=main border='0' width=402><tr><td style='padding: 0px; background-image: url("<?php echo $TBDEV['pic_base_url']?>loadbarbg.gif"); background-repeat: repeat-x'>
-<?php $percent = min(100, round(exec('ps ax | grep -c apache') / 256 * 100));
-if ($percent <= 70) $pic = "loadbargreen.gif";
-elseif ($percent <= 90) $pic = "loadbaryellow.gif";
-else $pic = "loadbarred.gif";
-$width = $percent * 4;
-print("<img height='1'5 width=$width src=\"{$TBDEV['pic_base_url']}{$pic}\" alt='$percent%'>"); ?>
-</td></tr></table>
-</td></tr></table>
-*/
+$retired_notice = '';
+if (isset($_GET['module_retired'])) {
+    $retired_modules = array('chat' => 'Chat', 'forums' => 'Fóruns', 'links' => 'Links', 'faq' => 'FAQ');
+    $retired_key = strtolower((string) $_GET['module_retired']);
+    if (isset($retired_modules[$retired_key])) {
+        $retired_notice = "<div class='notice notice-info'><strong>{$retired_modules[$retired_key]} foi descontinuado.</strong><span>Este laboratório mantém apenas o catálogo, tracker e ferramentas administrativas essenciais.</span></div>";
+    }
+}
 
-    $HTMLOUT .= sprintf("<p><font class='small'>{$lang['foot_disclaimer']}</font></p>", $TBDEV['site_name']);
-    
-    $HTMLOUT .= "";
+$dashboard = "{$retired_notice}
+<section class='dashboard-hero'>
+    <div>
+        <p class='eyebrow'>BitTorrent Work · laboratório</p>
+        <h1>Seu tracker, em uma visão.</h1>
+        <p class='hero-copy'>Acompanhe o estado do catálogo, publique torrents e mantenha o ambiente sob controle.</p>
+    </div>
+    <div class='hero-actions'><a class='btn btn-primary' href='browse.php'>Browse torrents</a><a class='btn btn-secondary' href='upload.php'>Upload torrent</a></div>
+</section>
+<section class='stat-grid' aria-label='Tracker statistics'>
+    <div class='stat-card'><span class='stat-label'>Registered users</span><strong>" . number_format($stats['registered']) . "</strong><span class='stat-note'>contas confirmadas</span></div>
+    <div class='stat-card'><span class='stat-label'>Torrents</span><strong>" . number_format($stats['torrents']) . "</strong><span class='stat-note'>no catálogo</span></div>
+    <div class='stat-card'><span class='stat-label'>Active peers</span><strong>" . number_format($stats['peers']) . "</strong><span class='stat-note'>" . number_format($stats['seeders']) . " seeders · " . number_format($stats['leechers']) . " leechers</span></div>
+    <div class='stat-card'><span class='stat-label'>Seed / leech ratio</span><strong>" . number_format($stats['ratio']) . "%</strong><span class='stat-note'>atividade atual</span></div>
+</section>
+<section class='dashboard-section'>
+    <div class='section-heading'><div><p class='eyebrow'>Atualizações</p><h2>News</h2></div>{$admin_link}</div>
+    <div class='news-list'>{$news_html}</div>
+</section>
+<section class='dashboard-section quick-start'>
+    <div class='section-heading'><div><p class='eyebrow'>Próximos passos</p><h2>Comece por aqui</h2></div></div>
+    <div class='quick-grid'><a href='browse.php'><strong>Browse</strong><span>Encontre torrents disponíveis.</span></a><a href='upload.php'><strong>Upload</strong><span>Adicione um torrent ao catálogo.</span></a><a href='topten.php'><strong>Top 10</strong><span>Veja os destaques do tracker.</span></a><a href='staff.php'><strong>Staff</strong><span>Conheça a equipe do ambiente.</span></a></div>
+</section>";
 
-///////////////////////////// FINAL OUTPUT //////////////////////
-
-    print stdhead('Home') . $HTMLOUT . stdfoot();
-?>
+print stdhead('Home') . $dashboard . stdfoot();

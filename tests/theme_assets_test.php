@@ -27,8 +27,11 @@ $assets = array(
     'pic/new.png',
     'pic/panel_on.gif',
     'pic/readpm.gif',
-    'pic/rep/reputation_down.gif',
-    'pic/rep/reputation_up.gif',
+    'pic/rep/reputation_pos.gif',
+    'pic/rep/reputation_highpos.gif',
+    'pic/rep/reputation_neg.gif',
+    'pic/rep/reputation_highneg.gif',
+    'pic/rep/reputation_balance.gif',
     'pic/staff/mail.png',
     'pic/staff/users.png',
     'pic/star.gif',
@@ -57,6 +60,20 @@ foreach ($assets as $relative) {
 foreach (array('pic/caticons', 'pic/forumicons', 'pic/rep', 'pic/smilies', 'pic/staff') as $relative) {
     if (!is_dir($root . '/' . $relative)) {
         fwrite(STDERR, "Missing theme directory: {$relative}\n");
+        exit(1);
+    }
+}
+
+$emoticons = file_get_contents($root . '/include/emoticons.php');
+if ($emoticons === false || !preg_match_all('/=>\s*[\'\"]([^\'\"]+\.gif)/', $emoticons, $matches)) {
+    fwrite(STDERR, "Could not inspect emoticon definitions.\n");
+    exit(1);
+}
+foreach (array_unique($matches[1]) as $filename) {
+    $relative = 'pic/smilies/' . $filename;
+    $path = $root . '/' . $relative;
+    if (!is_file($path) || @getimagesize($path) === false) {
+        fwrite(STDERR, "Missing or invalid emoticon asset: {$relative}\n");
         exit(1);
     }
 }

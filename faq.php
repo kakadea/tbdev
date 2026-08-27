@@ -17,6 +17,7 @@
 +------------------------------------------------
 */
 require_once 'include/bittorrent.php';
+tbdev_retire_module('faq');
 require_once 'include/user_functions.php';
 
 dbconn(false);

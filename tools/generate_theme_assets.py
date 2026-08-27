@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -153,9 +154,15 @@ save_icon("user_green.png", "avatar", (16, 16), IMAGES)
 save_icon("user_off.png", "cross", (16, 16), IMAGES)
 save_icon("users.png", "avatar", (20, 20), PIC / "staff")
 save_icon("mail.png", "mail", (20, 20), PIC / "staff")
-save_icon("reputation_up.gif", "arrow_up", (14, 14), PIC / "rep")
-save_icon("reputation_down.gif", "arrow_down", (14, 14), PIC / "rep")
+save_icon("reputation_pos.gif", "tick", (12, 12), PIC / "rep")
+save_icon("reputation_highpos.gif", "tick", (12, 12), PIC / "rep")
+save_icon("reputation_neg.gif", "cross", (12, 12), PIC / "rep")
+save_icon("reputation_highneg.gif", "cross", (12, 12), PIC / "rep")
+save_icon("reputation_balance.gif", "panel", (12, 12), PIC / "rep")
 save_icon("default_avatar.gif", "avatar", (50, 50), PIC / "forumicons")
+emoticon_source = (ROOT / 'include' / 'emoticons.php').read_text(encoding='utf-8')
+for smiley in sorted(set(re.findall(r'=>\s*[\'\"]([^\'\"]+\.gif)', emoticon_source))):
+    save_icon(smiley, 'panel', (18, 18), PIC / 'smilies')
 
 # Prevent opendir() warnings in administrative screens even when no custom icons exist.
 for directory in (PIC / "caticons", PIC / "staff", PIC / "rep", PIC / "smilies", PIC / "forumicons"):

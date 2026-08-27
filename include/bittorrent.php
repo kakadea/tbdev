@@ -253,7 +253,17 @@ function htmlsafechars($txt='') {
 
 
 function validfilename($name) {
-    return preg_match('/^[^\0-\x1f:\\\\\/?*\xff#<>|]+$/si', $name);
+    return preg_match('/^[^\0-\x1f:\\\\/?*\xff#<>|]+$/si', $name);
+}
+
+function tbdev_retire_module($module) {
+    $allowed = array('chat', 'forums', 'links', 'faq');
+    $module = strtolower((string) $module);
+    if (!in_array($module, $allowed, true))
+        $module = 'legacy';
+
+    header('Location: index.php?module_retired=' . rawurlencode($module), true, 302);
+    exit;
 }
 
 function validemail($email) {
@@ -333,7 +343,11 @@ function stdhead( $title = "", $js='', $css='' ) {
     $htmlout .= "
             </div>
             <div class='subheader'>
-                <div class='logo'>";
+                <div class='logo'>
+                    <a class='brand' href='index.php' aria-label='BitTorrent Work — página inicial'>
+                        <span class='brand-mark' aria-hidden='true'>▶</span>
+                        <span class='brand-copy'><strong>BitTorrent Work</strong><small>Laboratório de distribuição e testes</small></span>
+                    </a>";
 
     if ($CURUSER)
     {
@@ -398,11 +412,7 @@ function stdhead( $title = "", $js='', $css='' ) {
                            <li><a href='index.php'><span>{$lang['gl_home']}</span></a></li>
                            <li><a href='browse.php'><span>{$lang['gl_browse']}</span></a></li>
                            <li><a href='upload.php'><span>{$lang['gl_upload']}</span></a></li>
-                           <li><a href='chat.php'><span>{$lang['gl_chat']}</span></a></li>
-                           <li><a href='forums.php'><span>{$lang['gl_forums']}</span></a></li>
                            <li><a href='topten.php'><span>{$lang['gl_top_10']}</span></a></li>
-                           <li><a href='links.php'><span>{$lang['gl_links']}</span></a></li>
-                           <li><a href='faq.php'><span>{$lang['gl_faq']}</span></a></li>
                            <li><a href='staff.php'><span>{$lang['gl_staff']}</span></a></li>";
 
       if( $CURUSER['class'] >= UC_MODERATOR )
@@ -465,8 +475,7 @@ function stdfoot() {
         <!-- Begin Footer -->
         <div id='footer'>
             <div class='footerbg'>
-                <p>Remember, if you see any specific instance of this software running publicly, it's within your rights under gpl to garner a copy of that derivative from the person responsible for that webserver.<br />
-    <a href='http://www.tbdev.net'><img src='{$TBDEV['pic_base_url']}tbdev_btn_red.png' border='0' alt='Powered By TBDev &copy;2010' title='Powered By TBDev &copy;2010' /></a></p>
+                <p><strong>BitTorrent Work</strong><span>Laboratório privado para testes de tracker</span></p>
             </div>
         </div>
         <!-- End Footer -->

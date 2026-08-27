@@ -120,17 +120,23 @@ function format_comment($text, $strip_html = true)
   }
   
   // [code] tag (do first to make sure we take it out of the equation
-	$s = preg_replace( "#\[code\](.+?)\[/code\]#ies", "code_tag( '\\1' )", $s );
-  
-	// [list]
-	while( preg_match( "#\n?\[list\](.+?)\[/list\]\n?#ies" , $s ) )
+  $s = preg_replace_callback("#\[code\](.+?)\[/code\]#is", function ($matches) {
+    return code_tag($matches[1]);
+  }, $s);
+
+  // [list]
+  while (preg_match("#\n?\[list\](.+?)\[/list\]\n?#is", $s))
   {
-    $s = preg_replace( "#\n?\[list\](.+?)\[/list\]\n?#ies", "BB_list('\\1')" , $s );
+    $s = preg_replace_callback("#\n?\[list\](.+?)\[/list\]\n?#is", function ($matches) {
+      return BB_list($matches[1]);
+    }, $s, 1);
   }
-  
-  while( preg_match( "#\n?\[list=(a|A|i|I|1)\](.+?)\[/list\]\n?#ies" , $s ) )
+
+  while (preg_match("#\n?\[list=(a|A|i|I|1)\](.+?)\[/list\]\n?#is", $s))
   {
-    $s = preg_replace( "#\n?\[list=(a|A|i|I|1)\](.+?)\[/list\]\n?#ies", "BB_list('\\2','\\1')" , $s );
+    $s = preg_replace_callback("#\n?\[list=(a|A|i|I|1)\](.+?)\[/list\]\n?#is", function ($matches) {
+      return BB_list($matches[2], $matches[1]);
+    }, $s, 1);
   }
 	
 	

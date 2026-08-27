@@ -19,6 +19,7 @@
 	define('IN_TBDEV_FORUM', TRUE);
 
   require_once "include/bittorrent.php";
+  tbdev_retire_module('forums');
   require_once "include/user_functions.php";
   require_once "include/html_functions.php";
   //require_once "include/bbcode_functions.php";
