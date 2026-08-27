@@ -58,8 +58,8 @@ $TBDEV['cookie_domain']  = ''; // set to eg: .somedomain.com or is subdomain set
 $TBDEV['IPcookieCheck'] = 1;
                               
 $TBDEV['site_online'] = 1;
-$TBDEV['tracker_post_key'] = tbdev_env('TBDEV_TRACKER_POST_KEY', 'change-me');
-$TBDEV['tracker_cache_key'] = tbdev_env('TBDEV_TRACKER_CACHE_KEY', 'change-me');
+$TBDEV['tracker_post_key'] = tbdev_env('TBDEV_TRACKER_POST_KEY', '');
+$TBDEV['tracker_cache_key'] = tbdev_env('TBDEV_TRACKER_CACHE_KEY', '');
 $TBDEV['max_torrent_size'] = 1000000;
 $TBDEV['announce_interval'] = 60 * 30;
 $TBDEV['signup_timeout'] = 86400 * 3;
@@ -82,18 +82,41 @@ if ( strtoupper( substr(PHP_OS, 0, 3) ) == 'WIN' )
   }
   
 define('ROOT_PATH', $file_path);
-$TBDEV['torrent_dir'] = ROOT_PATH . '/torrents'; # must be writable for httpd user   
+$TBDEV['app_env'] = strtolower(trim(tbdev_env('APP_ENV', 'production')));
 
-# the first one will be displayed on the pages
-$default_host = isset($_SERVER['HTTP_HOST']) && $_SERVER['HTTP_HOST'] !== ''
-  ? $_SERVER['HTTP_HOST']
-  : (isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : 'localhost');
-$default_scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-$default_baseurl = $default_scheme . '://' . $default_host . '/';
-$TBDEV['baseurl'] = rtrim(tbdev_env('TBDEV_BASE_URL', $default_baseurl), '/');
-$TBDEV['announce_urls'] = array(
-  tbdev_env('TBDEV_ANNOUNCE_URL', $TBDEV['baseurl'] . '/announce.php')
-);
+$torrent_dir_default = $TBDEV['app_env'] === 'production' ? '' : ROOT_PATH . '/torrents';
+$TBDEV['torrent_dir'] = rtrim(tbdev_env('TBDEV_TORRENT_DIR', $torrent_dir_default), '/\\');
+if ($TBDEV['torrent_dir'] === '' || $TBDEV['torrent_dir'][0] !== '/')
+  die('TBDEV_TORRENT_DIR must be an absolute writable data directory.');
+
+# Production must use an explicit canonical HTTPS URL; never trust Host headers for links.
+$configured_baseurl = rtrim(tbdev_env('TBDEV_BASE_URL', ''), '/');
+if ($configured_baseurl === '')
+{
+  if ($TBDEV['app_env'] === 'production')
+    die('TBDEV_BASE_URL must be configured in production.');
+
+  $default_host = isset($_SERVER['HTTP_HOST']) && $_SERVER['HTTP_HOST'] !== '' ? $_SERVER['HTTP_HOST'] : '127.0.0.1';
+  $default_scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+  $configured_baseurl = $default_scheme . '://' . $default_host;
+}
+
+$baseurl_parts = parse_url($configured_baseurl);
+if ($baseurl_parts === false || empty($baseurl_parts['scheme']) || empty($baseurl_parts['host']) ||
+    !in_array(strtolower($baseurl_parts['scheme']), array('http', 'https'), true) ||
+    isset($baseurl_parts['user']) || isset($baseurl_parts['pass']) || isset($baseurl_parts['query']) || isset($baseurl_parts['fragment']))
+  die('TBDEV_BASE_URL must be an absolute HTTP(S) URL without credentials or query parameters.');
+if ($TBDEV['app_env'] === 'production' && strtolower($baseurl_parts['scheme']) !== 'https')
+  die('TBDEV_BASE_URL must use HTTPS in production.');
+$TBDEV['baseurl'] = $configured_baseurl;
+
+$announce_url = rtrim(tbdev_env('TBDEV_ANNOUNCE_URL', $TBDEV['baseurl'] . '/announce.php'), '/');
+$announce_parts = parse_url($announce_url);
+if ($announce_parts === false || empty($announce_parts['scheme']) || empty($announce_parts['host']) ||
+    !in_array(strtolower($announce_parts['scheme']), array('http', 'https'), true) ||
+    isset($announce_parts['user']) || isset($announce_parts['pass']) || isset($announce_parts['fragment']))
+  die('TBDEV_ANNOUNCE_URL must be an absolute HTTP(S) URL.');
+$TBDEV['announce_urls'] = array($announce_url);
 
 /*
 ## DO NOT UNCOMMENT THIS: IT'S FOR LATER USE!
@@ -117,9 +140,17 @@ $script = str_replace( "\\", "/", $script );
 //$TBDEV['peerlimit'] = 50000; //deprecated. no longer used.
 
 // Email for sender/return path.
-$TBDEV['site_email'] = tbdev_env('TBDEV_SITE_EMAIL', 'noreply@localhost');
-
+$TBDEV['site_email'] = tbdev_env('TBDEV_SITE_EMAIL', '');
 $TBDEV['site_name'] = tbdev_env('TBDEV_SITE_NAME', 'TBDev');
+$TBDEV['site_key'] = tbdev_env('TBDEV_SITE_KEY', '');
+
+if ($TBDEV['app_env'] === 'production')
+{
+  if (strlen($TBDEV['site_key']) < 32 || strlen($TBDEV['tracker_post_key']) < 32 || strlen($TBDEV['tracker_cache_key']) < 32)
+    die('TBDEV_SITE_KEY and tracker keys must be configured with random values in production.');
+  if (!filter_var($TBDEV['site_email'], FILTER_VALIDATE_EMAIL))
+    die('TBDEV_SITE_EMAIL must be configured in production.');
+}
 
 $TBDEV['language'] = 'en';
 //charset
