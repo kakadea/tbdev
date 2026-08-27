@@ -1,15 +1,13 @@
-function showhide(id){
-  if (document.getElementById)
-  {
-    obj = document.getElementById(id);
-    
-    if (obj.style.display == "none")
-    {
-      obj.style.display = "";
-    } 
-    else 
-    {
-      obj.style.display = "none";
-    }
-  }
-}
+(function () {
+  'use strict';
+
+  window.showhide = function (id) {
+    var element = document.getElementById(String(id));
+    if (!element) return false;
+
+    var isHidden = window.getComputedStyle(element).display === 'none';
+    element.hidden = !isHidden;
+    element.style.display = isHidden ? '' : 'none';
+    return isHidden;
+  };
+}());

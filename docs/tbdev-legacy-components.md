@@ -11,7 +11,8 @@ A modernização não trata todos os arquivos antigos da mesma maneira. Código 
 | `javairc/` | Arquivo binário Java applet sem caller funcional em navegador moderno | Payload removido. `chat.php` permanece como rota estável, mas informa que o applet foi desativado até existir uma implementação de chat moderna e testada. |
 | `torrents/` | Armazenamento de `.torrent` necessário ao runtime | Mantido como conceito, não como código da aplicação. O Docker usa `TBDEV_TORRENT_DIR` em volume externo; o `.htaccess` foi atualizado para negar acesso e desativar listagem. |
 | `logs/` | Diretório de logs legado | Mantido como ponto de compatibilidade, mas o runtime usa `TBDEV_LOG_DIR`/driver do container. O `.htaccess` foi atualizado para negar acesso e desativar listagem. |
-| CSS e imagens | Visual antigo, sem lógica de banco ou sessão | Não houve reescrita cega. A modernização visual deve ser uma etapa separada, com screenshots/regressão funcional, porque alterar tabelas, classes e dimensões pode quebrar formulários e páginas administrativas. |
+| CSS e imagens | Visual antigo, sem lógica de banco ou sessão | O stylesheet padrão recebeu uma camada responsiva/acessível que preserva seletores legados. A reescrita visual completa continua separada, com screenshots/regressão funcional, porque alterar tabelas, classes e dimensões pode quebrar formulários e páginas administrativas. |
+| `videoformats.php` e idioma | Página antiga baseada em tabela e arquivo indevido `lang/en/videoformats.php` | A página foi reestruturada em seções semânticas responsivas usando `lang/en/lang_videoformats.php`; o arquivo PHP indevido dentro do diretório de idiomas foi removido. |
 | PHP restante | Mistura de front controllers, handlers e rotinas de manutenção | Continua em migração incremental. O código crítico deve ser convertido para POST/CSRF, validação tipada e prepared statements antes de qualquer cutover. |
 
 ## CAPTCHA
@@ -27,6 +28,10 @@ O instalador antigo não deve ser reativado. Mesmo que o arquivo de lock existis
 ## JavaIRC
 
 A rota `chat.php` não carrega mais applets, arquivos `.jar`, `.cab` ou o arquivo binário arquivado. A navegação global pode continuar apontando para a rota para evitar link quebrado, mas o usuário recebe uma mensagem clara. Uma futura substituição deve ser um componente separado, com autenticação, limites, persistência e testes próprios; não se deve tentar ressuscitar o applet Java.
+
+## Frontend e compatibilidade de navegador
+
+O cabeçalho comum agora usa HTML5, `lang`, charset, viewport e referrer explícitos. O stylesheet padrão mantém as classes antigas, mas corrige larguras fixas, cria comportamento responsivo para navegação, formulários, tabelas e posts, e adiciona estados de foco. `popup.js`, `show_hide.js` e `bbcode2text.js` foram reescritos sem APIs exclusivas do Internet Explorer ou variáveis globais implícitas. O teste central rejeita o retorno de `document.selection`, `ActiveXObject`, `navigator.appVersion` e `document.all`.
 
 ## Próxima validação
 

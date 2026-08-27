@@ -1,134 +1,90 @@
-function addText(elname, wrap1, wrap2) {
-	if (document.selection) { // for IE 
-		var str = document.selection.createRange().text;
-		document.forms['bbcode2text'].elements[elname].focus();
-		var sel = document.selection.createRange();
-		sel.text = wrap1 + str + wrap2;
-		return;
-	} else if ((typeof document.forms['bbcode2text'].elements[elname].selectionStart) != 'undefined') { // for Mozilla
-		var txtarea = document.forms['bbcode2text'].elements[elname];
-		var selLength = txtarea.textLength;
-		var selStart = txtarea.selectionStart;
-		var selEnd = txtarea.selectionEnd;
-		var oldScrollTop = txtarea.scrollTop;
-		//if (selEnd == 1 || selEnd == 2)
-		//selEnd = selLength;
-		var s1 = (txtarea.value).substring(0,selStart);
-		var s2 = (txtarea.value).substring(selStart, selEnd)
-		var s3 = (txtarea.value).substring(selEnd, selLength);
-		txtarea.value = s1 + wrap1 + s2 + wrap2 + s3;
-		txtarea.selectionStart = s1.length;
-		txtarea.selectionEnd = s1.length + s2.length + wrap1.length + wrap2.length;
-		txtarea.scrollTop = oldScrollTop;
-		txtarea.focus();
-		return;
-	} else {
-		insertText(elname, wrap1 + wrap2);
-	}
-}
+(function () {
+  'use strict';
 
-function insertText(elname, what) {
-	if (document.forms['bbcode2text'].elements[elname].createTextRange) {
-		document.forms['bbcode2text'].elements[elname].focus();
-		document.selection.createRange().duplicate().text = what;
-	} else if ((typeof document.forms['bbcode2text'].elements[elname].selectionStart) != 'undefined') { // for Mozilla
-		var tarea = document.forms['bbcode2text'].elements[elname];
-		var selEnd = tarea.selectionEnd;
-		var txtLen = tarea.value.length;
-		var txtbefore = tarea.value.substring(0,selEnd);
-		var txtafter =  tarea.value.substring(selEnd, txtLen);
-		var oldScrollTop = tarea.scrollTop;
-		tarea.value = txtbefore + what + txtafter;
-		tarea.selectionStart = txtbefore.length + what.length;
-		tarea.selectionEnd = txtbefore.length + what.length;
-		tarea.scrollTop = oldScrollTop;
-		tarea.focus();
-	} else {
-		document.forms['bbcode2text'].elements[elname].value += what;
-		document.forms['bbcode2text'].elements[elname].focus();
-	}
-}
-function tag_url()
-{
-    var FoundErrors = '';
-    var enterURL   = prompt("Please enter the url", "http://");
-    var enterTITLE = prompt("please enter the url name", "My Webpage");
+  function getEditor(elementName) {
+    var form = document.forms.namedItem('bbcode2text');
+    if (!form) return null;
+    var element = form.elements.namedItem(String(elementName));
+    return element && typeof element.value === 'string' ? element : null;
+  }
 
-    if (!enterURL) {
-        FoundErrors += " " + "No url entered";
+  function safeUrl(value) {
+    try {
+      var url = new URL(String(value).trim(), window.location.href);
+      return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : '';
+    } catch (error) {
+      return '';
     }
-    if (!enterTITLE) {
-        FoundErrors += " " + "No url name entered";
+  }
+
+  window.addText = function (elementName, prefix, suffix) {
+    var editor = getEditor(elementName);
+    if (!editor) return false;
+
+    var start = typeof editor.selectionStart === 'number' ? editor.selectionStart : editor.value.length;
+    var end = typeof editor.selectionEnd === 'number' ? editor.selectionEnd : start;
+    var before = editor.value.slice(0, start);
+    var selected = editor.value.slice(start, end);
+    var after = editor.value.slice(end);
+    var inserted = String(prefix) + selected + String(suffix);
+
+    editor.value = before + inserted + after;
+    editor.focus();
+    if (typeof editor.setSelectionRange === 'function') {
+      var cursorStart = before.length + String(prefix).length;
+      editor.setSelectionRange(cursorStart, cursorStart + selected.length);
     }
+    return false;
+  };
 
-    if (FoundErrors) {
-        alert("Error!"+FoundErrors);
-        return;
+  window.insertText = function (elementName, text) {
+    return window.addText(elementName, '', String(text));
+  };
+
+  window.tag_url = function () {
+    var url = safeUrl(window.prompt('Please enter the URL', 'https://'));
+    var title = window.prompt('Please enter the URL name', 'My Webpage');
+    if (!url || !title || !String(title).trim()) {
+      window.alert('A valid HTTP(S) URL and a name are required.');
+      return false;
     }
+    return window.addText('body', '[url=' + url + ']' + String(title).trim(), '[/url]');
+  };
 
-	addText('body', '[url='+enterURL+']'+enterTITLE, '[/url]');
-}
-
-
-function tag_image()
-{
-    var FoundErrors = '';
-    var enterURL   = prompt("Please enter the image url", "http://");
-
-    if (!enterURL) {
-        FoundErrors += " " + "No image url added";
+  window.tag_image = function () {
+    var url = safeUrl(window.prompt('Please enter the image URL', 'https://'));
+    if (!url) {
+      window.alert('A valid HTTP(S) image URL is required.');
+      return false;
     }
+    return window.addText('body', '[img]' + url, '[/img]');
+  };
 
-    if (FoundErrors) {
-        alert("Error!"+FoundErrors);
-        return;
+  window.tag_list = function () {
+    var items = [];
+    var value;
+    do {
+      value = window.prompt('Enter a list item. Leave blank to finish.', '');
+      if (value !== null && String(value).trim() !== '') items.push('[*]' + String(value).trim());
+    } while (value !== null && String(value).trim() !== '');
+
+    if (items.length) return window.addText('body', '[list]\n' + items.join('\n') + '\n', '[/list]\n');
+    return false;
+  };
+
+  window.alterfont = function (value, tag) {
+    if (!value || !tag) return false;
+    var form = document.forms.namedItem('bbcode2text');
+    if (form) {
+      ['ffont', 'fsize', 'fcolor'].forEach(function (name) {
+        var field = form.elements.namedItem(name);
+        if (field) field.selectedIndex = 0;
+      });
     }
+    return window.addText('body', '[' + String(tag) + '=' + String(value) + ']', '[/' + String(tag) + ']');
+  };
 
-	addText('body', '[img]'+enterURL, '[/img]');
-}
-
-
-
-function tag_list()
-{
-	var listvalue = "init";
-	var thelist = "";
-	
-	while ( (listvalue != "") && (listvalue != null) )
-	{
-		listvalue = prompt("list_prompt", "");
-		if ( (listvalue != "") && (listvalue != null) )
-		{
-			thelist = thelist+"[*]"+listvalue+"\n";
-		}
-	}
-	
-	if ( thelist != "" )
-	{
-		addText('body', '[list]\n'+thelist, '[/list]\n');
-	}
-}
-
-
-
-function alterfont(theval, thetag)
-{
-    if (theval == 0)
-    	return;
-	
-	addText('body', '[' + thetag + '=' + theval + ']', '[/' + thetag + ']');
-
-    document.bbcode2text.ffont.selectedIndex  = 0;
-    document.bbcode2text.fsize.selectedIndex  = 0;
-    document.bbcode2text.fcolor.selectedIndex = 0;
-    
-	
-}
-
-
-
-function more_emoticons()
-{
-  window.open('emoticonloader.php','Emoticons', 'width=300,height=500,resizable=yes,scrollbars=yes'); 
-}
-
+  window.more_emoticons = function () {
+    return window.open('emoticonloader.php', 'Emoticons', 'width=300,height=500,resizable=yes,scrollbars=yes,noopener,noreferrer');
+  };
+}());

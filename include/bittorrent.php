@@ -268,9 +268,9 @@ function stdhead( $title = "", $js='', $css='' ) {
     else
         $title = $TBDEV['site_name'].(isset($_GET['tbv'])?" (".TBVERSION.")":''). " :: " . htmlsafechars($title);
         
-    if ($CURUSER)
+    if ($CURUSER && isset($CURUSER['stylesheet']) && !is_array($CURUSER['stylesheet']) && preg_match('/\A[1-2]\z/', (string) $CURUSER['stylesheet']))
     {
-      $TBDEV['stylesheet'] = isset($CURUSER['stylesheet']) ? "{$CURUSER['stylesheet']}.css" : $TBDEV['stylesheet'];
+      $TBDEV['stylesheet'] = './' . (int) $CURUSER['stylesheet'] . '.css';
     }
 
   /* Deprecate this.
@@ -293,18 +293,17 @@ function stdhead( $title = "", $js='', $css='' ) {
     }
 
 
-    $htmlout = "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\"
-		\"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">
-		
-		<html xmlns='http://www.w3.org/1999/xhtml'>
-		<head>
+    $htmlout = "<!doctype html>
+        <html lang='en'>
+        <head>
 
 			<meta name='generator' content='TBDev.net' />
-			<meta http-equiv='Content-Language' content='en-us' />
-			<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />
+          <meta charset='utf-8' />
+          <meta name='viewport' content='width=device-width, initial-scale=1' />
+          <meta name='referrer' content='same-origin' />
 			
           <title>{$title}</title>
-          <link rel='stylesheet' type='text/css' href='{$TBDEV['stylesheet']}' />
+          <link rel='stylesheet' href='{$TBDEV['stylesheet']}' media='all' />
           {$js}\n 
     </head>
     

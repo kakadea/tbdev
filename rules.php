@@ -14,22 +14,7 @@ loggedinorreturn();
     
     $HTMLOUT = "";
 
-$HTMLOUT .="<script type='text/javascript'>
-/*<![CDATA[*/
-  function toggle2(showHideDiv, switchTextDiv) {
-    var ele = document.getElementById(showHideDiv);
-    var text = document.getElementById(switchTextDiv);
-    if(ele.style.display == 'block') {
-          ele.style.display = 'none';
-          text.innerHTML = '<img src=\'pic/panel_on.gif\' alt=\'Read More\' />';
-      }
-    else {
-      ele.style.display = 'block';
-      text.innerHTML = '<img src=\'pic/panel_off.gif\' alt=\'Read Less\' />';
-    }
-  }
-/*]]>*/
-</script>";
+$HTMLOUT .= "<script src='scripts/rules.js' defer></script>";
     
     $res = mysql_query("SELECT r. * , c.rcat_name, IF( (".TIME_NOW." > ctime ) , IF( (".TIME_NOW." - mtime ) < ( 3600 *48 ) , 1, 0), 2) AS updated FROM rules r LEFT JOIN rules_categories c ON c.cid = r.cid WHERE min_class_read <= ".$CURUSER['class']." GROUP BY cid, id");
 
@@ -56,7 +41,8 @@ $HTMLOUT .="<script type='text/javascript'>
                                 </div>";
       
       $HTMLOUT .= "             <div style='padding: 5px;'>
-                                    <span style='font-weight:bold;font-size:10pt;'>{$arr['heading']}</span>&nbsp;<a id='myHeader_{$arr['id']}' href=\"javascript:toggle2('myContent_{$arr['id']}','myHeader_{$arr['id']}');\" ><img src='pic/panel_on.gif' alt='Read More' /></a>
+                                    <span class='rule-heading'>{$arr['heading']}</span>
+                                    <button type='button' class='panel-toggle' data-target='myContent_{$arr['id']}' aria-controls='myContent_{$arr['id']}' aria-expanded='false'><img src='pic/panel_on.gif' alt='Read more' /></button>
                                 </div>
                                 <div id='myContent_{$arr['id']}' style='display: none;'>
                                     <div class='clear'></div>

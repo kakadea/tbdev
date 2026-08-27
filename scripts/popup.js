@@ -1,34 +1,29 @@
-/////////////////////////////
-//	shiny shiny shiny popup...
-////////////////////////////
-function PopUp(url, name, width,height,center,resize,scroll,posleft,postop)
-{
-	showx = "";
-	showy = "";
-	
-	if (posleft != 0) { X = posleft }
-	if (postop  != 0) { Y = postop  }
-	
-	if (!scroll) { scroll = 1 }
-	if (!resize) { resize = 1 }
-	
-	if ((parseInt (navigator.appVersion) >= 4 ) && (center))
-	{
-		X = (screen.width  - width ) / 2;
-		Y = (screen.height - height) / 2;
-	}
-	
-	if ( X > 0 )
-	{
-		showx = ',left='+X;
-	}
-	
-	if ( Y > 0 )
-	{
-		showy = ',top='+Y;
-	}
-	
-	if (scroll != 0) { scroll = 1 }
-	
-	var Win = window.open( url, name, 'width='+width+',height='+height+ showx + showy + ',resizable='+resize+',scrollbars='+scroll+',location=no,directories=no,status=no,menubar=no,toolbar=no');
-}
+(function () {
+  'use strict';
+
+  window.PopUp = function (url, name, width, height, center, resize, scroll, posleft, postop) {
+    var popupWidth = Math.max(240, Number(width) || 400);
+    var popupHeight = Math.max(160, Number(height) || 300);
+    var left = Number(posleft) || 0;
+    var top = Number(postop) || 0;
+
+    if (center && window.screen) {
+      left = Math.max(0, Math.round((window.screen.availWidth - popupWidth) / 2));
+      top = Math.max(0, Math.round((window.screen.availHeight - popupHeight) / 2));
+    }
+
+    var features = [
+      'width=' + popupWidth,
+      'height=' + popupHeight,
+      'left=' + left,
+      'top=' + top,
+      'resizable=' + (resize ? 'yes' : 'no'),
+      'scrollbars=' + (scroll ? 'yes' : 'no'),
+      'noopener,noreferrer'
+    ].join(',');
+
+    var popup = window.open(String(url), String(name || '_blank'), features);
+    if (popup && typeof popup.focus === 'function') popup.focus();
+    return popup;
+  };
+}());
