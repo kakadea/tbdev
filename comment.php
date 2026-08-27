@@ -20,8 +20,10 @@ require_once "include/bittorrent.php";
 require_once "include/user_functions.php";
 require_once "include/html_functions.php";
 
-$action = $_GET["action"];
+$action = isset($_GET['action']) && is_string($_GET['action']) ? $_GET['action'] : '';
 
+security_session_start();
+$comment_csrf = security_csrf_token('comment');
 dbconn(false);
 
 
@@ -31,9 +33,19 @@ loggedinorreturn();
     
     if ($action == "add")
     {
-      if ($_SERVER["REQUEST_METHOD"] == "POST")
+      if ($_SERVER['REQUEST_METHOD'] === 'POST')
       {
-        $torrentid = 0 + $_POST["tid"];
+        if (!security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'comment'))
+        {
+          http_response_code(400);
+          exit('Invalid comment request.');
+        }
+        if (!security_rate_limit('comment-add', security_client_identity() . '|' . (int) $CURUSER['id'], 20, 300))
+        {
+          http_response_code(429);
+          exit('Too many comments. Please try again later.');
+        }
+        $torrentid = isset($_POST['tid']) && !is_array($_POST['tid']) ? (int) $_POST['tid'] : 0;
         if (!is_valid_id($torrentid))
           stderr("{$lang['comment_error']}", "{$lang['comment_invalid_id']}");
 
@@ -42,9 +54,11 @@ loggedinorreturn();
         if (!$arr)
           stderr("{$lang['comment_error']}", "{$lang['comment_invalid_torrent']}");
 
-        $text = trim($_POST["body"]);
-        if (!$text)
-          stderr("{$lang['comment_error']}", "{$lang['comment_body']}");
+        $text = isset($_POST['body']) && is_string($_POST['body']) ? trim($_POST['body']) : '';
+        if ($text === '')
+          stderr($lang['comment_error'], $lang['comment_body']);
+        if (strlen($text) > 20000)
+          stderr($lang['comment_error'], 'Comment is too long.');
 
         @mysql_query("INSERT INTO comments (user, torrent, added, text, ori_text) VALUES (" .
             $CURUSER["id"] . ",$torrentid, " . TIME_NOW . ", " . sqlesc($text) .
@@ -58,7 +72,7 @@ loggedinorreturn();
         die;
       }
 
-      $torrentid = 0 + $_GET["tid"];
+      $torrentid = isset($_GET['tid']) && !is_array($_GET['tid']) ? (int) $_GET['tid'] : 0;
       if (!is_valid_id($torrentid))
         stderr("{$lang['comment_error']}", "{$lang['comment_invalid_id']}");
 
@@ -74,7 +88,8 @@ loggedinorreturn();
                     <div class='cblock-header'>{$lang['comment_add']}\"" . htmlsafechars($arr["name"]) . "\"</div>
                     <div class='cblock-content'>
                     <form name='bbcode2text' method='post' action='comment.php?action=add'>
-                    <input type='hidden' name='tid' value='{$torrentid}'/>";
+                    <input type='hidden' name='csrf_token' value='" . htmlsafechars($comment_csrf) . "' />
+                    <input type='hidden' name='tid' value='" . (int) $torrentid . "' />";
       $HTMLOUT .=   bbcode2textarea(  );
       $HTMLOUT .= " <div align='center'>
                     <input type='submit' name='comment' value='{$lang['comment_doit']}' class='' />
@@ -105,7 +120,7 @@ loggedinorreturn();
     }
     elseif ($action == "edit")
     {
-      $commentid = 0 + $_GET["cid"];
+      $commentid = isset($_GET['cid']) && !is_array($_GET['cid']) ? (int) $_GET['cid'] : 0;
       if (!is_valid_id($commentid))
         stderr("{$lang['comment_error']}", "{$lang['comment_invalid_id']}");
 
@@ -117,13 +132,20 @@ loggedinorreturn();
       if ($arr["user"] != $CURUSER["id"] && get_user_class() < UC_MODERATOR)
         stderr("{$lang['comment_error']}", "{$lang['comment_denied']}");
 
-      if ($_SERVER["REQUEST_METHOD"] == "POST")
+      if ($_SERVER['REQUEST_METHOD'] === 'POST')
       {
-        $text = $_POST['body'];
-        $returnto = htmlsafechars($_POST["returnto"]);
+        if (!security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'comment'))
+        {
+          http_response_code(400);
+          exit('Invalid comment edit request.');
+        }
+        $text = isset($_POST['body']) && is_string($_POST['body']) ? trim($_POST['body']) : '';
+        $returnto = security_validate_return_to(isset($_POST['returnto']) ? $_POST['returnto'] : '', '/details.php?id=' . (int) $arr['torrent']);
 
-        if ($text == "")
-          stderr("{$lang['comment_error']}", "{$lang['comment_body']}");
+        if ($text === '')
+          stderr($lang['comment_error'], $lang['comment_body']);
+        if (strlen($text) > 20000)
+          stderr($lang['comment_error'], 'Comment is too long.');
 
         $text = sqlesc($text);
 
@@ -131,14 +153,11 @@ loggedinorreturn();
 
         mysql_query("UPDATE comments SET text=$text, editedat=$editedat, editedby={$CURUSER['id']} WHERE id=$commentid") or sqlerr(__FILE__, __LINE__);
 
-        if ($returnto)
-          header("Location: $returnto");
-        else
-          header("Location: {$TBDEV['baseurl']}/");      // change later ----------------------
-        die;
+        header('Location: ' . $returnto);
+        exit;
       }
       
-      $returnto = htmlsafechars($_SERVER["HTTP_REFERER"]);
+      $returnto = '/details.php?id=' . (int) $arr['torrent'];
       $js = "<script type='text/javascript' src='scripts/bbcode2text.js'></script>";
       $HTMLOUT = '';
 
@@ -147,8 +166,9 @@ loggedinorreturn();
                          <div class='cblock-header'>{$lang['comment_edit']}\"" . htmlsafechars($arr["name"]) . "\"</div>
                          <div class='cblock-content'>
                              <form name='bbcode2text' method='post' action='comment.php?action=edit&amp;cid=$commentid'>
-                                  <input type='hidden' name='returnto' value='{$returnto}' />
-                                  <input type='hidden' name='cid' value='$commentid' />";
+                                  <input type='hidden' name='csrf_token' value='" . htmlsafechars($comment_csrf) . "' />
+                                  <input type='hidden' name='returnto' value='" . htmlsafechars($returnto) . "' />
+                                  <input type='hidden' name='cid' value='" . (int) $commentid . "' />";
       $HTMLOUT .=                 bbcode2textarea( 'body', htmlsafechars($arr["text"]) );
       $HTMLOUT .= "       <div align='center'>
                           <input type='submit' name='comment' value='{$lang['comment_doit']}' class='' />
@@ -165,20 +185,22 @@ loggedinorreturn();
       if (get_user_class() < UC_MODERATOR)
         stderr("{$lang['comment_error']}", "{$lang['comment_denied']}");
 
-      $commentid = 0 + $_GET["cid"];
+      $commentid = isset($_GET['cid']) && !is_array($_GET['cid']) ? (int) $_GET['cid'] : (isset($_POST['cid']) && !is_array($_POST['cid']) ? (int) $_POST['cid'] : 0);
 
       if (!is_valid_id($commentid))
-        stderr("{$lang['comment_error']}", "{$lang['comment_invalid_id']}");
+        stderr($lang['comment_error'], $lang['comment_invalid_id']);
 
-      $sure = isset($_GET["sure"]) ? (int)$_GET["sure"] : false;
+      $sure = isset($_POST['sure']) && (string) $_POST['sure'] === '1';
 
-      if (!$sure)
+      if (!$sure || $_SERVER['REQUEST_METHOD'] !== 'POST' || !security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'comment'))
       {
-        $referer = $_SERVER["HTTP_REFERER"];
-        stderr("{$lang['comment_delete']}", "{$lang['comment_about_delete']}\n" .
-          "<a href='comment.php?action=delete&amp;cid=$commentid&amp;sure=1" .
-          ($referer ? "&amp;returnto=" . urlencode($referer) : "") .
-          "'>here</a> {$lang['comment_delete_sure']}");
+        $confirm = "<form method='post' action='comment.php?action=delete'>
+          <input type='hidden' name='csrf_token' value='" . htmlsafechars($comment_csrf) . "' />
+          <input type='hidden' name='cid' value='" . (int) $commentid . "' />
+          <input type='hidden' name='sure' value='1' />
+          <button type='submit'>here</button>
+        </form>";
+        stderr($lang['comment_delete'], $lang['comment_about_delete'] . $confirm . ' ' . $lang['comment_delete_sure']);
       }
 
 
@@ -191,23 +213,19 @@ loggedinorreturn();
       if ($torrentid && mysql_affected_rows() > 0)
         mysql_query("UPDATE torrents SET comments = comments - 1 WHERE id = $torrentid");
 
-      $returnto = $_GET["returnto"];
-
-      if ($returnto)
-        header("Location: $returnto");
-      else
-        header("Location: {$TBDEV['baseurl']}/");      // change later ----------------------
-      die;
+      $returnto = security_validate_return_to(isset($_POST['returnto']) ? $_POST['returnto'] : '', '/');
+      header('Location: ' . $returnto);
+      exit;
     }
     elseif ($action == "vieworiginal")
     {
       if (get_user_class() < UC_MODERATOR)
         stderr("{$lang['comment_error']}", "{$lang['comment_denied']}");
 
-      $commentid = 0 + $_GET["cid"];
+      $commentid = isset($_GET['cid']) && !is_array($_GET['cid']) ? (int) $_GET['cid'] : 0;
 
       if (!is_valid_id($commentid))
-        stderr("{$lang['comment_error']}", "{$lang['comment_invalid_id']}");
+        stderr($lang['comment_error'], $lang['comment_invalid_id']);
 
       $res = mysql_query("SELECT c.*, t.name FROM comments AS c LEFT JOIN torrents AS t ON c.torrent = t.id WHERE c.id=$commentid") or sqlerr(__FILE__,__LINE__);
       $arr = mysql_fetch_assoc($res);
@@ -229,12 +247,9 @@ loggedinorreturn();
                          </div>
                      </div>";
 
-      $returnto = htmlsafechars(filter_var($_SERVER['HTTP_REFERER'], FILTER_SANITIZE_STRING));
+      $returnto = '/details.php?id=' . (int) $arr['torrent'];
 
-    //	$returnto = "details.php?id=$torrentid&amp;viewcomm=$commentid#$commentid";
-
-      if ($returnto)
-        $HTMLOUT .= "<span class='btn'><a href='$returnto'>{$lang['comment_back']}</a></span>\n";
+      $HTMLOUT .= "<span class='btn'><a href='" . htmlsafechars($returnto) . "'>{$lang['comment_back']}</a></span>\n";
 
       print stdhead("{$lang['comment_original']}") . $HTMLOUT . stdfoot();
       die;
