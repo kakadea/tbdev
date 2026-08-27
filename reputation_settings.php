@@ -46,33 +46,37 @@ $rep_set_cache = "cache/rep_settings_cache.php";
 //	cache rep function
 /////////////////////////////
 function rep_cache()
-	{
-		
-		global $rep_set_cache;
-		
-		$rep_out = "<"."?php\n\n\$GVARS = array(\n";
-		
-		foreach( $_POST as $k => $v)
 		{
-			$rep_out .= ($k == 'rep_undefined') ? "\t'{$k}' => '".htmlsafechars($v)."',\n" : "\t'{$k}' => ".intval($v).",\n";
+			global $rep_set_cache;
+
+			$numeric_keys = array(
+				'rep_is_online', 'rep_adminpower', 'rep_default', 'rep_userrates',
+				'rep_rdpower', 'rep_pcpower', 'rep_kppower', 'rep_minrep',
+				'rep_minpost', 'rep_maxperday', 'rep_repeat'
+			);
+			$settings = array();
+
+			foreach ($numeric_keys as $key)
+			{
+				$settings[$key] = isset($_POST[$key]) ? (int) $_POST[$key] : 0;
+			}
+
+			$settings['rep_undefined'] = isset($_POST['rep_undefined'])
+				? trim((string) $_POST['rep_undefined'])
+				: 'is off the scale';
+			$settings['g_rep_negative'] = true;
+			$settings['g_rep_seeown'] = true;
+
+			$cache_file = ROOT_PATH . '/' . ltrim($rep_set_cache, '/');
+			$payload = "<?php\n\n\$GVARS = " . var_export($settings, true) . ";\n\n?>\n";
+
+			if (@file_put_contents($cache_file, $payload, LOCK_EX) === false)
+			{
+				redirect('reputation_settings.php', 'Unable to write reputation settings.', 3);
+			}
+
+			redirect('reputation_settings.php', 'Reputation Settings Have Been Updated!', 3);
 		}
-		
-		$rep_out .= "\t'g_rep_negative' => TRUE,\n";
-		$rep_out .=	"\t'g_rep_seeown' => TRUE,\n";
-		$rep_out .= "\t'g_rep_use' => \$CURUSER['class'] > UC_USER ? TRUE : FALSE\n";
-		$rep_out .= "\n);\n\n?".">";
-		
-		if( file_exists( $rep_set_cache ) && is_writable( pathinfo($rep_set_cache, PATHINFO_DIRNAME) ) )
-		{
-			$filenum = fopen ( $rep_set_cache, 'w' );
-			ftruncate( $filenum, 0 );
-			fwrite( $filenum, $rep_out );
-			fclose( $filenum );
-			//print '<pre>'.$rep_out.'</pre>';exit;
-		}
-		
-		redirect('reputation_settings.php', 'Reputation Settings Have Been Updated!', 3);
-	}
 	
 		
 function get_cache_array() 
