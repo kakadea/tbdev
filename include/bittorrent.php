@@ -17,6 +17,7 @@
 +------------------------------------------------
 */
 require_once("config.php");
+require_once("legacy_db.php");
 //require_once("cleanup.php");
 
 

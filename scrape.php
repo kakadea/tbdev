@@ -17,6 +17,7 @@
 +------------------------------------------------
 */
 require_once("include/config.php");
+require_once("include/legacy_db.php");
 
     if (!@mysql_connect($TBDEV['mysql_host'], $TBDEV['mysql_user'], $TBDEV['mysql_pass']))
     {
