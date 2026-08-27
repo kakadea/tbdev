@@ -66,14 +66,14 @@ function docleanup( $data ) {
   
   $value = '"'.addslashes( $stats ).'"';
   
-  $file_content = "<?"."php\n\n".'$stats = '.$stats.";\n\n?".'>';
+  $file_content = "<?"."php\n\n".'$stats = '.$value.";\n\n?".'>';
   
   flock( $fh, LOCK_EX );
   fwrite( $fh, $file_content );
   flock( $fh, LOCK_UN );
   fclose( $fh );
   
-  @chmod( ROOT_PATH.'/cache/stats.php', 0777 );
+  @chmod( ROOT_PATH.'/cache/stats.php', 0660 );
   // cache end temporary
   /*
   $stats = unserialize( stripslashes($stats) );
