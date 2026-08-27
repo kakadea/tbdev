@@ -30,7 +30,10 @@ loggedinorreturn();
     $lang = array_merge( load_language('global'), load_language('takeupload') );
     
     if ($CURUSER['class'] < UC_UPLOADER)
-      header( "Location: {$TBDEV['baseurl']}/upload.php" );
+    {
+      header( "Location: {$TBDEV['baseurl']}/upload.php", true, 403 );
+      exit;
+    }
 
     foreach(explode(":","body:type:name") as $v) {
       if (!isset($_POST[$v]))
@@ -41,6 +44,10 @@ loggedinorreturn();
       stderr($lang['takeupload_failed'], $lang['takeupload_no_formdata']);
 
     $f = $_FILES["file"];
+    if (!isset($f['error']) || $f['error'] !== UPLOAD_ERR_OK)
+      stderr($lang['takeupload_failed'], $lang['takeupload_no_file']);
+    if (!isset($f['size']) || (int) $f['size'] <= 0 || (int) $f['size'] > (int) $TBDEV['max_torrent_size'])
+      stderr($lang['takeupload_failed'], $lang['takeupload_no_file']);
     $fname = unesc($f["name"]);
     if (empty($fname))
       stderr($lang['takeupload_failed'], $lang['takeupload_no_filename']);
