@@ -332,6 +332,7 @@ CREATE TABLE users (
   last_login int(11) NOT NULL,
   last_access int(11) NOT NULL,
   editsecret varchar(32) COLLATE utf8_unicode_ci NOT NULL,
+  recovery_expires int(11) NOT NULL DEFAULT '0',
   privacy enum('strong','normal','low') COLLATE utf8_unicode_ci NOT NULL DEFAULT 'normal',
   stylesheet int(10) DEFAULT '1',
   info text COLLATE utf8_unicode_ci,

@@ -12,7 +12,7 @@ $lang = array(
 'stderr_confmailsent' => "A confirmation email has been mailed. Please allow a few minutes for the mail to arrive.",
 'stderr_nomail' => "Unable to send mail. Please contact an administrator about this error.",
 'stderr_noupdate' => "Unable to update user data. Please contact an administrator about this error.",
-'stderr_mailed' => "The new account details have been mailed to <b>(%s)</b>. Please allow a few minutes for the mail to arrive.",
+'stderr_mailed' => "A password reset link has been mailed to <b>(%s)</b>. Please allow a few minutes for the mail to arrive.",
 
 
 #head
@@ -61,7 +61,7 @@ You may login at %s/login.php
 
 #recover
 'recover_unamepass' => "Recover lost user name or password",
-'recover_form' => "Use the form below to have your password reset and your account details mailed back to you.",
+'recover_form' => "Use the form below to receive a time-limited password reset link by email.",
 'recover_regdemail' => "Registered email",
 'recover_btn' => "Do it!" 
 
