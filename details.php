@@ -62,7 +62,7 @@ loggedinorreturn();
       exit();
     }
 	
-$res = mysql_query("SELECT torrents.seeders, torrents.banned, torrents.leechers, torrents.info_hash, torrents.filename, LENGTH(torrents.nfo) AS nfosz, torrents.last_action AS lastseed, torrents.numratings, torrents.name, IF(torrents.numratings < {$TBDEV['minvotes']}, NULL, ROUND(torrents.ratingsum / torrents.numratings, 1)) AS rating, torrents.comments, torrents.owner, torrents.save_as, torrents.descr, torrents.visible, torrents.size, torrents.added, torrents.views, torrents.hits, torrents.times_completed, torrents.id, torrents.type, torrents.numfiles, categories.name AS cat_name, users.username FROM torrents LEFT JOIN categories ON torrents.category = categories.id LEFT JOIN users ON torrents.owner = users.id WHERE torrents.id = $id")
+$res = mysql_query("SELECT torrents.seeders, torrents.banned, torrents.leechers, torrents.info_hash, torrents.filename, LENGTH(torrents.nfo) AS nfosz, torrents.last_action AS lastseed, torrents.numratings, torrents.name, IF(torrents.numratings < {$TBDEV['minvotes']}, NULL, ROUND(torrents.ratingsum / torrents.numratings, 1)) AS rating, torrents.comments, torrents.owner, torrents.save_as, torrents.descr, torrents.visible, torrents.size, torrents.added, torrents.views, torrents.hits, torrents.times_completed, torrents.id, torrents.type, torrents.numfiles, categories.name AS cat_name, categories.image AS cat_pic, users.username FROM torrents LEFT JOIN categories ON torrents.category = categories.id LEFT JOIN users ON torrents.owner = users.id WHERE torrents.id = $id")
 	or sqlerr();
 $row = mysql_fetch_assoc($res);
 
@@ -119,7 +119,7 @@ if (!$row || ($row["banned"] == "yes" && !$moderator))
     $HTMLOUT .= "        </div>";
     $HTMLOUT .= "        <div class='cblock-content'>";
 
-    $HTMLOUT .= "<table width='100%' border=\"1\" cellspacing=\"0\" cellpadding=\"5\">\n";
+    $HTMLOUT .= "<table class='details-table' width='100%' border=\"0\" cellspacing=\"0\" cellpadding=\"5\">\n";
 
 		$url = "edit.php?id=" . $row["id"];
 		if (isset($_GET["returnto"])) {
@@ -143,8 +143,8 @@ if (!$row || ($row["banned"] == "yes" && !$moderator))
 */
 		$HTMLOUT .= tr("{$lang['details_info_hash']}", $row["info_hash"]);
 
-		if (!empty($row["descr"]))
-			$HTMLOUT .= "<tr><td style='vertical-align:top'>{$lang['details_description']}</td><td><div style='background-color:#d9e2ff;width:100%;height:150px;overflow: auto'>". str_replace(array("\n", "  "), array("<br />\n", "&nbsp; "), format_comment( $row["descr"] ))."</div></td></tr>";
+            if (!empty($row['descr']))
+                $HTMLOUT .= "<tr><td class='rowhead details-label'>{$lang['details_description']}</td><td><div class='details-description'>" . format_comment($row['descr']) . "</div></td></tr>";
 
     if (get_user_class() >= UC_POWER_USER && $row["nfosz"] > 0)
       $HTMLOUT .= "<tr><td class='rowhead'>{$lang['details_nfo']}</td><td align='left'><a href='viewnfo.php?id=$row[id]'><b>{$lang['details_view_nfo']}</b></a> (" .mksize($row["nfosz"]) . ")</td></tr>\n";
@@ -154,10 +154,18 @@ if (!$row || ($row["banned"] == "yes" && !$moderator))
 		if ($moderator)
 			$HTMLOUT .= tr("{$lang['details_banned']}", $row["banned"]);
 
-		if (isset($row["cat_name"]))
-			$HTMLOUT .= tr("{$lang['details_type']}", $row["cat_name"]);
-		else
-			$HTMLOUT .= tr("{$lang['details_type']}", "{$lang['details_none']}");
+            if (isset($row['cat_name'])) {
+                $category_name = htmlsafechars($row['cat_name']);
+                $category_icon = '';
+                if (isset($row['cat_pic']) && preg_match('/\Acat_[A-Za-z0-9_]+\.(?:gif|jpg|jpeg|png)\z/i', $row['cat_pic'])) {
+                    $category_file = rtrim($TBDEV['pic_base_url'], '/\\') . '/caticons/' . $row['cat_pic'];
+                    if (is_file($category_file))
+                        $category_icon = "<img class='category-icon' src='" . htmlsafechars($category_file) . "' alt='' />";
+                }
+                $HTMLOUT .= tr("{$lang['details_type']}", "<span class='category-pill'>{$category_icon}{$category_name}</span>");
+            } else {
+                $HTMLOUT .= tr("{$lang['details_type']}", "{$lang['details_none']}");
+            }
 
 		$HTMLOUT .= tr("{$lang['details_last_seeder']}", "{$lang['details_last_activity']}" .get_date( $row['lastseed'],'',0,1));
 		$HTMLOUT .= tr("{$lang['details_size']}",mksize($row["size"]) . " (" . number_format($row["size"]) . "{$lang['details_bytes']})");

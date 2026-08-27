@@ -67,9 +67,14 @@ $adduser_csrf = security_csrf_token('admin-adduser');
       $secret = sqlesc($secret_raw);
       $passhash = sqlesc(make_passhash($secret_raw, md5($password)));
       $modern_hash = sqlesc(password_hash($password, PASSWORD_DEFAULT));
+      $passkey = sqlesc(bin2hex(random_bytes(16)));
+      $admin_ip = getip();
+      if (!is_string($admin_ip) || filter_var($admin_ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false)
+        $admin_ip = '0.0.0.0';
+      $ip = sqlesc($admin_ip);
       $time_now = TIME_NOW;
 
-      mysql_query("INSERT INTO users (added, last_access, secret, username, passhash, password_hash, status, email) VALUES($time_now, $time_now, $secret, $username, $passhash, $modern_hash, 'confirmed', $email)") or sqlerr(__FILE__, __LINE__);
+      mysql_query("INSERT INTO users (username, passhash, password_hash, secret, passkey, email, status, added, last_login, last_access, editsecret, ip, avatar, title, notifs, modcomment) VALUES($username, $passhash, $modern_hash, $secret, $passkey, $email, 'confirmed', $time_now, $time_now, $time_now, '', $ip, '', '', '', '')") or sqlerr(__FILE__, __LINE__);
       $res = mysql_query("SELECT id FROM users WHERE username=$username LIMIT 1") or sqlerr(__FILE__, __LINE__);
       $arr = mysql_fetch_row($res);
       if (!$arr)

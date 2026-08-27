@@ -43,7 +43,8 @@ function torrenttable( $res ) {
 
     $htmlout .= "
     
-    <table border='1' cellspacing='0' cellpadding='5'>
+    <div class='table-scroll'>
+    <table class='torrent-table' border='0' cellspacing='0' cellpadding='5'>
     <tr>
     <td class='colhead' align='center'>{$lang["torrenttable_type"]}</td>
     <td class='colhead' align='left'>{$lang["torrenttable_name"]}</td>
@@ -80,11 +81,16 @@ function torrenttable( $res ) {
       if (isset($row["cat_name"])) 
       {
           $htmlout .= "<a href='browse.php?cat={$row['category']}'>";
-          if (isset($row["cat_pic"]) && $row["cat_pic"] != "")
-              $htmlout .= "<img src='{$TBDEV['pic_base_url']}caticons/{$row['cat_pic']}' alt='{$row['cat_name']}' />";
-          else
-          {
-              $htmlout .= $row["cat_name"];
+          $category_name = htmlsafechars($row['cat_name']);
+          $category_image = isset($row['cat_pic']) ? (string) $row['cat_pic'] : '';
+          if (preg_match('/\Acat_[A-Za-z0-9_]+\.(?:gif|jpg|jpeg|png)\z/i', $category_image)) {
+              $category_file = rtrim($TBDEV['pic_base_url'], '/\\') . '/caticons/' . $category_image;
+              if (is_file($category_file))
+                  $htmlout .= "<img class='category-icon' src='" . htmlsafechars($category_file) . "' alt='' /><span class='sr-only'>{$category_name}</span>";
+              else
+                  $htmlout .= $category_name;
+          } else {
+              $htmlout .= $category_name;
           }
           $htmlout .= "</a>";
       }
@@ -98,7 +104,7 @@ function torrenttable( $res ) {
       
       $disptitle = htmlsafechars( $row['name'] );
       
-      $htmlout .= "<td align='left'><a href='details.php?id=$id&amp;hit=1' title='$disptitle'><strong>$dispname</strong></a>\n";
+      $htmlout .= "<td class='torrent-name' align='left'><a href='details.php?id=$id&amp;hit=1' title='$disptitle'><strong>$dispname</strong></a>\n";
 
       if ($wait)
       {
@@ -106,7 +112,7 @@ function torrenttable( $res ) {
         if ($elapsed < $wait)
         {
           $color = dechex(floor(127*($wait - $elapsed)/48 + 128)*65536);
-          $htmlout .= "<td align='center'><span style='white-space: nowrap;'><a href='faq.php#dl8'><div style='color:$color;'>" . number_format($wait - $elapsed) . " ".$lang["torrenttable_wait_h"]."</div></a></span></td>\n";
+          $htmlout .= "<td align='center'><span style='white-space: nowrap;'><a href='rules.php'><div style='color:$color;'>" . number_format($wait - $elapsed) . " ".$lang["torrenttable_wait_h"]."</div></a></span></td>\n";
         }
         else
           $htmlout .= "<td align='center'><span style='white-space: nowrap;'>{$lang["torrenttable_wait_none"]}</span></td>\n";
@@ -202,7 +208,7 @@ function torrenttable( $res ) {
     $htmlout .= "</tr>\n";
   }
 
-  $htmlout .= "</table>\n";
+  $htmlout .= "</table></div>\n";
 
     return $htmlout;
 }

@@ -173,6 +173,8 @@ function isproxy()
     if ($modernpasshash === false)
       stderr($lang['takesignup_user_error'], $lang['takesignup_fatal_error']);
     $editsecret = (!$arr[0] ? "" : make_passhash_login_key());
+    $signup_auto_confirm = !empty($TBDEV['signup_confirm_auto']);
+    $signup_status = (!$arr[0] || $signup_auto_confirm) ? 'confirmed' : 'pending';
     $signup_ip = getip();
     if (!is_string($signup_ip) || filter_var($signup_ip, FILTER_VALIDATE_IP) === false || strlen($signup_ip) > 15)
       $signup_ip = '0.0.0.0';
@@ -185,7 +187,7 @@ function isproxy()
     );
     $signup_values = array(
       $wantusername, $wantpasshash, $modernpasshash, $secret, $editsecret, $email,
-      (!$arr[0] ? 'confirmed' : 'pending'), 0, TIME_NOW, $signup_ip, '', '', '', ''
+      $signup_status, 0, TIME_NOW, $signup_ip, '', '', '', ''
     );
     if (!$arr[0])
     {
@@ -216,11 +218,16 @@ function isproxy()
                         array($TBDEV['site_name'], $email, $_SERVER['REMOTE_ADDR'], "{$TBDEV['baseurl']}/confirm.php?id=$id&secret=$psecret"),
                         $lang['takesignup_email_body']);
 
-    if($arr[0])
-      mail($email, "{$TBDEV['site_name']} {$lang['takesignup_confirm']}", $body, "{$lang['takesignup_from']} {$TBDEV['site_email']}");
-    else 
+    if ($signup_status === 'pending') {
+      $mail_sent = mail($email, "{$TBDEV['site_name']} {$lang['takesignup_confirm']}", $body, "{$lang['takesignup_from']} {$TBDEV['site_email']}");
+      if (!$mail_sent)
+        error_log('TBDev signup confirmation email could not be handed to the local mail transport.');
+      $ok_url = 'ok.php?type=signup&email=' . urlencode($email);
+    } else {
       logincookie($id, $wantpasshash);
+      $ok_url = !$arr[0] ? 'ok.php?type=sysop' : 'ok.php?type=confirmed';
+    }
 
-    header("Refresh: 0; url=ok.php?type=". (!$arr[0]?"sysop":("signup&email=" . urlencode($email))));
+    header("Refresh: 0; url={$ok_url}");
 
 ?>

@@ -226,11 +226,19 @@ loggedinorreturn();
     foreach ($cats as $cat)
     {
       $HTMLOUT .= ($i && $i % $catsperrow == 0) ? "</div><div class='space-line'></div><div class='table-row'>" : "";
+      $category_name = htmlsafechars($cat['name']);
+      $category_icon = '';
+      $category_image = isset($cat['image']) ? (string) $cat['image'] : '';
+      if (preg_match('/\Acat_[A-Za-z0-9_]+\.(?:gif|jpg|jpeg|png)\z/i', $category_image)) {
+        $category_file = rtrim($TBDEV['pic_base_url'], '/\\') . '/caticons/' . $category_image;
+        if (is_file($category_file))
+          $category_icon = "<img class='category-filter-icon' src='" . htmlsafechars($category_file) . "' alt='' />";
+      }
       $HTMLOUT .= "
-                                      <div class='left-layer'>
-                                          <p class='text'>
-                                            <input name='c".$cat['id']."' type=\"checkbox\" " . (in_array($cat['id'],$wherecatina) ? "checked='checked' " : "") . "value='1' /><a class='catlink' href='browse.php?cat={$cat['id']}'>" . htmlsafechars($cat['name']) . "</a>
-                                          </p>
+                                      <div class='left-layer category-filter'>
+                                          <label class='text' for='cat-" . (int) $cat['id'] . "'>
+                                            <input id='cat-" . (int) $cat['id'] . "' name='c" . (int) $cat['id'] . "' type=\"checkbox\" " . (in_array($cat['id'],$wherecatina) ? "checked='checked' " : "") . "value='1' />{$category_icon}<span>{$category_name}</span>
+                                          </label>
                                       </div>\n";
       $i++;
     }

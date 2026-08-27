@@ -636,3 +636,33 @@ textarea { min-height: 120px; }
 .notice { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; margin: 0 auto 20px; padding: 13px 16px; border: 1px solid #d6c49e; border-radius: 10px; color: #66512c; background: #fff8e9; }
 .notice strong { color: var(--tb2-primary); }
 .notice span { color: var(--tb2-muted); }
+
+.table-scroll { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 12px; }
+.torrent-table { width: 100%; min-width: 860px; border-collapse: separate; border-spacing: 0; }
+.torrent-table th, .torrent-table td { white-space: nowrap; vertical-align: middle; }
+.torrent-table .torrent-name { min-width: 220px; white-space: normal; }
+.torrent-table .torrent-name a { display: block; min-width: 180px; }
+.category-icon { display: inline-block; width: 36px; height: 36px; object-fit: contain; vertical-align: middle; }
+.details-table { border-collapse: separate; border-spacing: 0 8px; }
+.details-table td { vertical-align: top; }
+.details-table .details-label { width: 170px; min-width: 150px; }
+.details-description { min-height: 84px; max-height: 420px; overflow: auto; padding: 16px; border: 1px solid var(--tb2-border); border-radius: 10px; background: var(--tb2-surface-soft); line-height: 1.65; overflow-wrap: anywhere; }
+.category-pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--tb2-border); border-radius: 999px; background: var(--tb2-surface-soft); font-weight: 700; }
+@media (max-width: 720px) {
+  .details-table .details-label { width: 110px; min-width: 96px; }
+  .details-table td { padding: 9px 7px; }
+}
+
+.details-table .rowhead { width: 170px; min-width: 150px; white-space: normal; overflow-wrap: anywhere; }
+.details-table td:not(.rowhead) { width: auto; min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 720px) {
+  .details-table .rowhead { width: 110px; min-width: 96px; }
+}
+
+.category-filter { min-width: 170px; }
+.category-filter label { display: flex; align-items: center; gap: 8px; min-height: 54px; padding: 8px 12px; border: 1px solid var(--tb2-border); border-radius: 10px; background: var(--tb2-surface); cursor: pointer; }
+.category-filter label:hover, .category-filter label:focus-within { border-color: var(--tb2-primary); background: var(--tb2-surface-soft); }
+.category-filter input { flex: 0 0 auto; }
+.category-filter-icon { width: 36px; height: 36px; object-fit: contain; }
+.category-filter span { overflow-wrap: anywhere; }
+@media (max-width: 720px) { .category-filter { min-width: 0; width: 100%; } }

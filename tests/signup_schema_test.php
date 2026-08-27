@@ -5,8 +5,9 @@ declare(strict_types=1);
 $root = dirname(__DIR__);
 $schema = file_get_contents($root . '/SQL/tb.sql');
 $handler = file_get_contents($root . '/takesignup.php');
-if ($schema === false || $handler === false) {
-    fwrite(STDERR, "Unable to read signup schema or handler.\n");
+$admin_handler = file_get_contents($root . '/admin/adduser.php');
+if ($schema === false || $handler === false || $admin_handler === false) {
+    fwrite(STDERR, "Unable to read signup schema or handlers.\n");
     exit(1);
 }
 
@@ -41,6 +42,13 @@ foreach ($required as $column) {
 if (strpos($handler, 'password_hash') === false || strpos($handler, 'error_log(\'TBDev signup insert failed') === false) {
     fwrite(STDERR, "Signup modern password or safe DB diagnostic is missing.\n");
     exit(1);
+}
+
+foreach ($required as $column) {
+    if (strpos($admin_handler, $column) === false) {
+        fwrite(STDERR, "Admin adduser does not explicitly populate required column: {$column}\n");
+        exit(1);
+    }
 }
 
 echo "Signup schema coverage passed.\n";

@@ -159,7 +159,12 @@ save_icon("reputation_highpos.gif", "tick", (12, 12), PIC / "rep")
 save_icon("reputation_neg.gif", "cross", (12, 12), PIC / "rep")
 save_icon("reputation_highneg.gif", "cross", (12, 12), PIC / "rep")
 save_icon("reputation_balance.gif", "panel", (12, 12), PIC / "rep")
+for rating in range(1, 6):
+    save_icon(f"{rating}.gif", "star", (18, 18), PIC)
 save_icon("default_avatar.gif", "avatar", (50, 50), PIC / "forumicons")
+save_icon("cat_test.gif", "new", (42, 42), PIC / "caticons")
+save_icon("cat_software.gif", "panel", (42, 42), PIC / "caticons")
+save_icon("cat_docs.gif", "read", (42, 42), PIC / "caticons")
 emoticon_source = (ROOT / 'include' / 'emoticons.php').read_text(encoding='utf-8')
 for smiley in sorted(set(re.findall(r'=>\s*[\'\"]([^\'\"]+\.gif)', emoticon_source))):
     save_icon(smiley, 'panel', (18, 18), PIC / 'smilies')

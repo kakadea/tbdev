@@ -68,6 +68,7 @@ $TBDEV['max_dead_torrent_time'] = 6 * 3600;
 
 // Max users on site
 $TBDEV['maxusers'] = 5000; // LoL Who we kiddin' here?
+$TBDEV['signup_confirm_auto'] = filter_var(tbdev_env('TBDEV_SIGNUP_CONFIRM_AUTO', '0'), FILTER_VALIDATE_BOOLEAN);
 
 
 if ( strtoupper( substr(PHP_OS, 0, 3) ) == 'WIN' )
