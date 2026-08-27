@@ -23,12 +23,24 @@ if ( ! defined( 'IN_TBDEV_FORUM' ) )
 }
 
 
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'forum-post'))
+    {
+      http_response_code(400);
+      exit('Invalid forum post request.');
+    }
+    if (!security_rate_limit('forum-post', security_client_identity() . '|' . (int) $CURUSER['id'], 20, 300))
+    {
+      http_response_code(429);
+      exit('Too many forum posts. Please try again later.');
+    }
 
-    $forumid = isset($_POST["forumid"]) ? (int)$_POST["forumid"] : 0;
-    $topicid = isset($_POST["topicid"]) ? (int)$_POST["topicid"] : 0;
+    $forumid = isset($_POST['forumid']) && !is_array($_POST['forumid']) ? (int) $_POST['forumid'] : 0;
+    $topicid = isset($_POST['topicid']) && !is_array($_POST['topicid']) ? (int) $_POST['topicid'] : 0;
 
     if (!is_valid_id($forumid) && !is_valid_id($topicid))
-      stderr("{$lang['forum_post_error']}", "{$lang['forum_post_bad_id']}");
+      stderr($lang['forum_post_error'], $lang['forum_post_bad_id']);
+    if (is_valid_id($forumid) && is_valid_id($topicid))
+      stderr($lang['forum_post_error'], $lang['forum_post_bad_id']);
 
     $newtopic = $forumid > 0;
 
@@ -36,7 +48,8 @@ if ( ! defined( 'IN_TBDEV_FORUM' ) )
 
     if ($newtopic)
     {
-      $subject = trim(strip_tags($_POST['title']));
+      $subject_input = isset($_POST['subject']) && is_string($_POST['subject']) ? $_POST['subject'] : (isset($_POST['title']) && is_string($_POST['title']) ? $_POST['title'] : '');
+      $subject = trim(strip_tags($subject_input));
 
       if (!$subject)
         stderr("{$lang['forum_post_error']}", "{$lang['forum_post_subject']}");
@@ -54,10 +67,12 @@ if ( ! defined( 'IN_TBDEV_FORUM' ) )
     if (get_user_class() < $arr["write"] || ($newtopic && get_user_class() < $arr["create"]))
       stderr("{$lang['forum_post_error']}", "{$lang['forum_post_denied']}");
 
-    $body = trim($_POST["body"]);
+    $body = isset($_POST['body']) && is_string($_POST['body']) ? trim($_POST['body']) : '';
 
-    if ($body == "")
-      stderr("{$lang['forum_post_error']}", "{$lang['forum_post_body']}");
+    if ($body === '')
+      stderr($lang['forum_post_error'], $lang['forum_post_body']);
+    if (strlen($body) > 50000)
+      stderr($lang['forum_post_error'], 'Post is too long.');
 
     $userid = $CURUSER["id"];
 

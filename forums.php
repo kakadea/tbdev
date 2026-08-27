@@ -25,6 +25,8 @@
   require_once "forums/forum_functions.php";
   
 
+  security_session_start();
+  $forum_csrf = security_csrf_token('forum-post');
   dbconn(false);
 
   loggedinorreturn();

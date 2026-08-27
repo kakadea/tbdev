@@ -153,7 +153,7 @@ if ( ! defined( 'IN_TBDEV_FORUM' ) )
 
   function insert_compose_frame($id, $newtopic = true, $quote = false)
   {
-    global $TBDEV, $maxsubjectlength, $CURUSER, $lang, $forum_pic_url;
+    global $TBDEV, $maxsubjectlength, $CURUSER, $lang, $forum_pic_url, $forum_csrf;
 
     $htmlout = '';
     $title = '';
@@ -192,6 +192,7 @@ if ( ! defined( 'IN_TBDEV_FORUM' ) )
     $htmlout .= begin_frame("Compose", true);
 
     $htmlout .= "<form name='bbcode2text' method='post' action='forums.php?action=post'>\n";
+    $htmlout .= "<input type='hidden' name='csrf_token' value='" . htmlsafechars($forum_csrf) . "' />\n";
 
     if ($newtopic)
       $htmlout .= "<input type='hidden' name='forumid' value='$id' />\n";
@@ -290,8 +291,8 @@ if ( ! defined( 'IN_TBDEV_FORUM' ) )
   
 function insert_fastreply($ids, $pkey = '') {
 	
-    global $TBDEV;
-    
+        global $TBDEV, $forum_csrf;
+
     $htmlout = "<div style='display: none;' id='fastreply'>
     <div class='tb_table_inner_wrap'>
     <span style='color:#ffffff;'>Fast Reply</span>
@@ -304,14 +305,12 @@ function insert_fastreply($ids, $pkey = '') {
         $htmlout .= "<input type='hidden' name='postkey' value='$pkey' />\n";
     }
     
-    $htmlout .= "<input type='hidden' name='topicid' value='{$ids['topicid']}' />
-    
-    <input type='hidden' name='forumid' value='{$ids['forumid']}' />
-    
-    <textarea name='body' cols='50' rows='10'></textarea>
+    $htmlout .= "<input type='hidden' name='csrf_token' value='" . htmlsafechars($forum_csrf) . "' />\n";
+    $htmlout .= "<input type='hidden' name='topicid' value='" . (int) $ids['topicid'] . "' />\n";
+    $htmlout .= "<textarea name='body' cols='50' rows='10'></textarea>
 
     <br /><input type='submit' class='btn' value='Submit' />
-    
+
     <input onclick=\"showhide('fastreply'); return(false);\" value='Close Fast Reply' type='button' class='btn' />
 
     </form>
