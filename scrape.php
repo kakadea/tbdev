@@ -25,8 +25,9 @@ require_once("include/legacy_db.php");
     }
       
     @mysql_select_db($TBDEV['mysql_db']) or exit();
+    @mysql_set_charset('utf8');
 
-    if ( !isset($_GET['info_hash']) OR (strlen($_GET['info_hash']) != 20) )
+    if (!isset($_GET['info_hash']) || !is_string($_GET['info_hash']) || strlen($_GET['info_hash']) !== 20)
       error('Invalid hash');
 
     $res = @mysql_query( "SELECT info_hash, seeders, leechers, times_completed FROM torrents WHERE " . hash_where( $_GET['info_hash']) );
@@ -46,6 +47,7 @@ require_once("include/legacy_db.php");
     //$benc .= 'd5:flagsd20:min_request_intervali1800eee';
     
     header('Content-Type: text/plain; charset=UTF-8');
+    header('Cache-Control: no-store, no-cache, max-age=0');
     header('Pragma: no-cache');
     print($benc);
 
@@ -54,8 +56,9 @@ function error($err){
 
     header('Content-Type: text/plain; charset=UTF-8');
     header('Pragma: no-cache');
-    exit("d14:failure reason".strlen($err).":{$err}ed5:flagsd20:min_request_intervali1800eeee");
-    
+    $err = (string) $err;
+    exit('d14:failure reason' . strlen($err) . ':' . $err . 'ed5:flagsd20:min_request_intervali1800eeee');
+
 }
 
 function hash_where($hash) {
