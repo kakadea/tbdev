@@ -140,12 +140,15 @@ function isproxy()
     // TIMEZONE STUFF END
 
     $secret = mksecret();
-    $wantpasshash = make_passhash( $secret, md5($wantpassword) );
-    $editsecret = ( !$arr[0] ? "" : make_passhash_login_key() );
+    $wantpasshash = make_passhash($secret, md5($wantpassword));
+    $modernpasshash = password_hash($wantpassword, PASSWORD_DEFAULT);
+    if ($modernpasshash === false)
+      stderr($lang['takesignup_user_error'], $lang['takesignup_fatal_error']);
+    $editsecret = (!$arr[0] ? "" : make_passhash_login_key());
 
-    $ret = mysql_query("INSERT INTO users (username, passhash, secret, editsecret, email, status, ". (!$arr[0]?"class, ":"") ."added, time_offset, dst_in_use) VALUES (" .
-		implode(",", array_map("sqlesc", array($wantusername, $wantpasshash, $secret, $editsecret, $email, (!$arr[0]?'confirmed':'pending')))).
-		", ". (!$arr[0]?UC_SYSOP.", ":""). "". TIME_NOW ." , $time_offset, {$dst_in_use['tm_isdst']})");
+    $ret = mysql_query("INSERT INTO users (username, passhash, password_hash, secret, editsecret, email, status, " . (!$arr[0] ? "class, " : "") . "added, time_offset, dst_in_use) VALUES (" .
+        implode(",", array_map("sqlesc", array($wantusername, $wantpasshash, $modernpasshash, $secret, $editsecret, $email, (!$arr[0] ? 'confirmed' : 'pending')))) .
+        ", " . (!$arr[0] ? UC_SYSOP . ", " : "") . "" . TIME_NOW . " , $time_offset, {$dst_in_use['tm_isdst']})");
 
     if (!$ret) 
     {

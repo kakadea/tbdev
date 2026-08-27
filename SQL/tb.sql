@@ -323,6 +323,7 @@ CREATE TABLE users (
   id int(10) unsigned NOT NULL AUTO_INCREMENT,
   username varchar(40) COLLATE utf8_unicode_ci NOT NULL,
   passhash varchar(32) COLLATE utf8_unicode_ci NOT NULL,
+  password_hash varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL,
   secret varchar(20) COLLATE utf8_unicode_ci NOT NULL,
   passkey varchar(32) COLLATE utf8_unicode_ci NOT NULL DEFAULT '',
   email varchar(80) COLLATE utf8_unicode_ci NOT NULL,
