@@ -70,9 +70,9 @@ require_once "include/pager_functions.php";
          <table border='1' cellspacing='0' cellpadding='5'>
                <tr>
                   <td valign='middle' class='rowhead'>{$lang['usersearch_name']}</td>
-                  <td " .is_set_not_empty($_POST['n'])?$highlight:''. "><input name='n' type='text' value=' " .is_set_not_empty($_POST['n'])?htmlsafechars($_POST['n']):''. "' size='25' /></td>
+                  <td " . (is_set_not_empty($_POST['n']) ? $highlight : '') . "><input name='n' type='text' value='" . (is_set_not_empty($_POST['n']) ? htmlsafechars($_POST['n']) : '') . "' size='25' /></td>
                   <td valign='middle' class='rowhead'>{$lang['usersearch_ratio']}</td>
-                  <td " .(isset($_POST['r'])&&!empty($_POST['r']))?$highlight:''. ">
+                  <td " . ((isset($_POST['r']) && !empty($_POST['r'])) ? $highlight : '') . ">
                      <select name='rt'>";
 
     $options = array("equal","above","below","between");
@@ -82,11 +82,11 @@ require_once "include/pager_functions.php";
 
     $HTMLOUT .= "
                      </select>
-                     <input name='r' type='text' value='" .isset($_POST['r'])? $_POST['r']:''."' size='5' maxlength='4' />
-                     <input name='r2' type='text' value='" .isset($_POST['r2'])?$_POST['r2']:''."' size='5' maxlength='4' />
+                     <input name='r' type='text' value='" . (isset($_POST['r']) ? $_POST['r'] : '') . "' size='5' maxlength='4' />
+                     <input name='r2' type='text' value='" . (isset($_POST['r2']) ? $_POST['r2'] : '') . "' size='5' maxlength='4' />
                   </td>
                   <td valign='middle' class='rowhead'>{$lang['usersearch_status']}</td>
-                  <td ".(isset($_POST['st'])&&!empty($_POST['st']))?$highlight:''.">
+                  <td " . ((isset($_POST['st']) && !empty($_POST['st'])) ? $highlight : '') . ">
                      <select name='st'>";
 
 	$options = array("(any)","confirmed","pending");
@@ -100,15 +100,15 @@ require_once "include/pager_functions.php";
                </tr>
                <tr>
                   <td valign='middle' class='rowhead'>{$lang['usersearch_email']}</td>
-                  <td " .(isset($_POST['em'])&&!empty($_POST['em']))?$highlight:''. ">
-                     <input name='em' type='text' value=' " .isset($_POST['em'])?$_POST['em']:''."' size='25' />
+                  <td " . ((isset($_POST['em']) && !empty($_POST['em'])) ? $highlight : '') . ">
+                     <input name='em' type='text' value='" . (isset($_POST['em']) ? $_POST['em'] : '') . "' size='25' />
                   </td>
                   <td valign='middle' class='rowhead'>{$lang['usersearch_ip']}</td>
-                  <td " .(isset($_POST['ip'])&&!empty($_POST['ip']))?$highlight:''. ">
-                     <input name='ip' type='text' value=' " .isset($_POST['ip'])?$_POST['ip']:''. "' maxlength='17' />
+                  <td " . ((isset($_POST['ip']) && !empty($_POST['ip'])) ? $highlight : '') . ">
+                     <input name='ip' type='text' value='" . (isset($_POST['ip']) ? $_POST['ip'] : '') . "' maxlength='17' />
                   </td>
                   <td valign='middle' class='rowhead'>{$lang['usersearch_acstatus']}</td>
-                  <td " .(isset($_POST['as'])&&!empty($_POST['as']))?$highlight:''. "><select name='as'>";
+                  <td " . ((isset($_POST['as']) && !empty($_POST['as'])) ? $highlight : '') . "><select name='as'>";
 
 
 /* - GAVE UP TO HERE COULDNT BE ARSED NAH WHAT I MEAN - */

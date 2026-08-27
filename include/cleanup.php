@@ -18,7 +18,7 @@
 */
 require_once("bittorrent.php");
 
-function deadtime {
+function deadtime() {
     global $TBDEV;
     return TIME_NOW - floor($TBDEV['announce_interval'] * 1.3);
 }
