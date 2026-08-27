@@ -24,6 +24,7 @@ grep -q "video-formats-grid" videoformats.php
 php tests/security_auth_test.php
 php tests/bencode_test.php
 php tests/captcha_test.php
+php tests/cache_test.php
 git diff --check
 
 echo "Static and security checks passed."
