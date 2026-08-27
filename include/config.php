@@ -38,12 +38,18 @@ $TBDEV['time_tiny'] = '';
 $TBDEV['time_date'] = '';
 
 
-// DB setup
-// FYNNON FUCKWIT FRENCH RETARD
-$TBDEV['mysql_host'] = "localhost";
-$TBDEV['mysql_user'] = "root";
-$TBDEV['mysql_pass'] = "blank";
-$TBDEV['mysql_db']   = "test";
+function tbdev_env($key, $default = '')
+{
+	$value = getenv($key);
+	return ($value === false || $value === '') ? $default : $value;
+}
+
+// DB setup. Production values must come from the environment, never from Git.
+$TBDEV['mysql_host'] = tbdev_env('TBDEV_DB_HOST', '127.0.0.1');
+$TBDEV['mysql_user'] = tbdev_env('TBDEV_DB_USER', 'tbdev');
+$TBDEV['mysql_pass'] = tbdev_env('TBDEV_DB_PASSWORD', '');
+$TBDEV['mysql_db']   = tbdev_env('TBDEV_DB_NAME', 'tbdev');
+$TBDEV['mysql_port'] = (int) tbdev_env('TBDEV_DB_PORT', '3306');
 
 // Cookie setup
 $TBDEV['cookie_prefix']  = 'tbalpha_'; // This allows you to have multiple trackers, eg for demos, testing etc.
@@ -52,8 +58,8 @@ $TBDEV['cookie_domain']  = ''; // set to eg: .somedomain.com or is subdomain set
 $TBDEV['IPcookieCheck'] = 1;
                               
 $TBDEV['site_online'] = 1;
-$TBDEV['tracker_post_key'] = 'changethisorelse';
-$TBDEV['tracker_cache_key'] = 'something_random';
+$TBDEV['tracker_post_key'] = tbdev_env('TBDEV_TRACKER_POST_KEY', 'change-me');
+$TBDEV['tracker_cache_key'] = tbdev_env('TBDEV_TRACKER_CACHE_KEY', 'change-me');
 $TBDEV['max_torrent_size'] = 1000000;
 $TBDEV['announce_interval'] = 60 * 30;
 $TBDEV['signup_timeout'] = 86400 * 3;
@@ -79,15 +85,15 @@ define('ROOT_PATH', $file_path);
 $TBDEV['torrent_dir'] = ROOT_PATH . '/torrents'; # must be writable for httpd user   
 
 # the first one will be displayed on the pages
-$TBDEV['announce_urls'] = array();
-$TBDEV['announce_urls'][] = "http://localhost/tb_new/announce.php";
-//$TBDEV['announce_urls'] = "http://localhost:2710/announce";
-//$TBDEV['announce_urls'] = "http://domain.com:83/announce.php";
-
-if ($_SERVER["HTTP_HOST"] == "")
-  $_SERVER["HTTP_HOST"] = $_SERVER["SERVER_NAME"];
-  
-$TBDEV['baseurl'] = "http://" . $_SERVER["HTTP_HOST"]."/tb_new";
+$default_host = isset($_SERVER['HTTP_HOST']) && $_SERVER['HTTP_HOST'] !== ''
+  ? $_SERVER['HTTP_HOST']
+  : (isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : 'localhost');
+$default_scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$default_baseurl = $default_scheme . '://' . $default_host . '/';
+$TBDEV['baseurl'] = rtrim(tbdev_env('TBDEV_BASE_URL', $default_baseurl), '/');
+$TBDEV['announce_urls'] = array(
+  tbdev_env('TBDEV_ANNOUNCE_URL', $TBDEV['baseurl'] . '/announce.php')
+);
 
 /*
 ## DO NOT UNCOMMENT THIS: IT'S FOR LATER USE!
@@ -111,9 +117,9 @@ $script = str_replace( "\\", "/", $script );
 //$TBDEV['peerlimit'] = 50000; //deprecated. no longer used.
 
 // Email for sender/return path.
-$TBDEV['site_email'] = "coldfusion@localhost";
+$TBDEV['site_email'] = tbdev_env('TBDEV_SITE_EMAIL', 'noreply@localhost');
 
-$TBDEV['site_name'] = "TBDEV.NET";
+$TBDEV['site_name'] = tbdev_env('TBDEV_SITE_NAME', 'TBDev');
 
 $TBDEV['language'] = 'en';
 //charset

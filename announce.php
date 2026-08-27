@@ -16,19 +16,14 @@
 |   $URL$
 +------------------------------------------------
 */error_reporting(0);
-////////////////// GLOBAL VARIABLES ////////////////////////////	
-$TBDEV['baseurl'] = 'http://localhost/tb_new/';
+require_once "include/config.php";
+require_once "include/legacy_db.php";
+////////////////// GLOBAL VARIABLES ////////////////////////////
+
 $TBDEV['announce_interval'] = 60 * 30;
 $TBDEV['min_interval'] = 60 * 15;
 $TBDEV['user_ratios'] = 0;
 $TBDEV['connectable_check'] = 0;
-define ('UC_VIP', 2);
-// DB setup
-$TBDEV['mysql_host'] = "localhost";
-$TBDEV['mysql_user'] = "root";
-$TBDEV['mysql_pass'] = "blank";
-$TBDEV['mysql_db']   = "test";
-require_once "include/legacy_db.php";
 ////////////////// GLOBAL VARIABLES ////////////////////////////
 
 // DO NOT EDIT BELOW UNLESS YOU KNOW WHAT YOU'RE DOING!!

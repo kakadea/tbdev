@@ -35,7 +35,7 @@ function mysql_connect($server = null, $username = null, $password = null, $new_
     $password = $password ?? ($TBDEV['mysql_pass'] ?? '');
 
     $host = $server;
-    $port = 3306;
+    $port = isset($TBDEV['mysql_port']) ? (int) $TBDEV['mysql_port'] : 3306;
     $socket = null;
 
     if (str_contains($server, ':')) {
