@@ -19,6 +19,8 @@
 require_once "include/bittorrent.php";
 require_once "include/user_functions.php";
 
+security_session_start();
+$message_csrf = security_csrf_token('messages');
 dbconn(false);
 loggedinorreturn();
 
@@ -44,13 +46,15 @@ $mm_template[3] = array( $lang['sendmessage_mm_template3_sub'], $lang['sendmessa
       if ($CURUSER['class'] < UC_MODERATOR)
         stderr("{$lang['sendmessage_error']}", "{$lang['sendmessage_denied']}");
 
-      $n_pms = htmlsafechars($_POST['n_pms']);
-      $pmees = htmlsafechars($_POST['pmees']);
+      $n_pms = isset($_POST['n_pms']) && !is_array($_POST['n_pms']) ? (int) $_POST['n_pms'] : 0;
+      $pmees = isset($_POST['pmees']) && is_string($_POST['pmees']) ? trim($_POST['pmees']) : '';
+      if ($n_pms < 1 || $n_pms > 500 || !preg_match('/^[0-9:]+$/', $pmees))
+        stderr($lang['sendmessage_error'], $lang['sendmessage_no_id']);
       $this_subject = '';
       $this_body = '';
-      $auto = isset($_POST['auto']) ? $_POST['auto'] : FALSE;
+      $auto = isset($_POST['auto']) && !is_array($_POST['auto']) ? (int) $_POST['auto'] : 0;
 
-      if ($auto)
+      if ($auto && isset($mm_template[$auto]))
       {
         $this_subject = htmlsafechars($mm_template[$auto][0]);
         $this_body = htmlsafechars($mm_template[$auto][1]);
@@ -65,12 +69,9 @@ $mm_template[3] = array( $lang['sendmessage_mm_template3_sub'], $lang['sendmessa
                          <div class='cblock-content'>
                              <form method='post' action='takemessage.php'>";
 
-      if ($_SERVER["HTTP_REFERER"])
-      {
-        $HTMLOUT .= "             <input type='hidden' name='returnto' value='{$_SERVER["HTTP_REFERER"]}' />";
-      }
-
-      $HTMLOUT .= "               <table border='1' cellspacing='0' cellpadding='5'>
+            $HTMLOUT .= "               <input type='hidden' name='csrf_token' value='" . htmlsafechars($message_csrf) . "' />
+                                  <input type='hidden' name='returnto' value='sendmessage.php' />
+                                  <table border='1' cellspacing='0' cellpadding='5'>
                                         <tr>
                                            <td align='right'><b>{$lang['sendmessage_subject']}</b></td>
                                            <td><input style='width: 650px;' name='subject' type='text' value='$this_subject' size='50' /></td>
@@ -86,7 +87,7 @@ $mm_template[3] = array( $lang['sendmessage_mm_template3_sub'], $lang['sendmessa
                                         <tr>
                                            <td colspan='2'>
                                               <div align='center'><b>{$lang['sendmessage_from']}</b>
-                                                  {$CURUSER['username']}
+                                                  " . htmlsafechars($CURUSER['username']) . "
                                                   <input name='sender' type='radio' value='self' checked='checked' />&nbsp; System
                                                   <input name='sender' type='radio' value='system' />
                                               </div>
@@ -97,8 +98,8 @@ $mm_template[3] = array( $lang['sendmessage_mm_template3_sub'], $lang['sendmessa
                                            <td colspan='2' align='center'><input type='submit' value='{$lang['sendmessage_send_it']}' class='btn' /></td>
                                         </tr>
                                   </table>
-                                  <input type='hidden' name='pmees' value='{$pmees}' />
-                                  <input type='hidden' name='n_pms' value='{$n_pms}' />
+                                  <input type='hidden' name='pmees' value='" . htmlsafechars($pmees) . "' />
+                                  <input type='hidden' name='n_pms' value='" . (int) $n_pms . "' />
                              </form>
                              <br /><br />
       
@@ -118,8 +119,9 @@ $mm_template[3] = array( $lang['sendmessage_mm_template3_sub'], $lang['sendmessa
 
       $HTMLOUT .= "                           </select>
                                               <input type='submit' value='{$lang['sendmessage_use']}' class='btn' />
-                                              <input type='hidden' name='pmees' value='{$pmees}' />
-                                              <input type='hidden' name='n_pms' value='{$n_pms}' />
+                                              <input type='hidden' name='pmees' value='" . htmlsafechars($pmees) . "' />
+                                              <input type='hidden' name='n_pms' value='" . (int) $n_pms . "' />
+                                              <input type='hidden' name='csrf_token' value='" . htmlsafechars($message_csrf) . "' />
                                            </td>
                                         </tr>
                                   </table>
@@ -129,21 +131,21 @@ $mm_template[3] = array( $lang['sendmessage_mm_template3_sub'], $lang['sendmessa
     }
     else 
     {                                                        ////////  PM  //
-      $receiver = 0+$_GET["receiver"];
+      $receiver = isset($_GET['receiver']) && !is_array($_GET['receiver']) ? (int) $_GET['receiver'] : 0;
       if (!is_valid_id($receiver))
         die;
 
-      $replyto = isset($_GET["replyto"]) ? (int)$_GET["replyto"] : 0;
+      $replyto = isset($_GET['replyto']) && !is_array($_GET['replyto']) ? (int) $_GET['replyto'] : 0;
       if ($replyto && !is_valid_id($replyto))
         stderr("{$lang['sendmessage_system_error']}", "{$lang['sendmessage_it_broke']}");
 
-      $auto = isset($_GET["auto"]) ? $_GET["auto"] : false;
-      $std = isset($_GET["std"]) ? $_GET["std"] : false;
+      $auto = isset($_GET['auto']) && !is_array($_GET['auto']) ? (int) $_GET['auto'] : 0;
+      $std = isset($_GET['std']) && !is_array($_GET['std']) ? (int) $_GET['std'] : 0;
 
       if (($auto || $std ) && $CURUSER['class'] < UC_MODERATOR)
         stderr("{$lang['sendmessage_user_error']}", "{$lang['sendmessage_denied']}");
 
-      $res = mysql_query("SELECT * FROM users WHERE id=$receiver") or die(mysql_error());
+      $res = mysql_query("SELECT * FROM users WHERE id=" . (int) $receiver) or die(mysql_error());
       $user = mysql_fetch_assoc($res);
       if (!$user)
         stderr("{$lang['sendmessage_user_error']}", "{$lang['sendmessage_no_id']}");
@@ -163,14 +165,14 @@ $mm_template[3] = array( $lang['sendmessage_mm_template3_sub'], $lang['sendmessa
         $res = mysql_query("SELECT username FROM users WHERE id={$msga['sender']}") or sqlerr();
         $usra = mysql_fetch_assoc($res);
         $body = sprintf( $lang['sendmessage_user_wrote'], $usra['username'], $msga['msg'] );
-        $subject = "{$lang['sendmessage_re']}" . htmlsafechars($msga['subject']);
+          $subject = "{$lang['sendmessage_re']}" . htmlsafechars($msga['subject']);
       }
 
 
 
       $HTMLOUT .= "
                      <div class='cblock'>
-                         <div class='cblock-header'>Message to <a href='userdetails.php?id={$receiver}'>{$user["username"]}</a></div>
+                         <div class='cblock-header'>Message to <a href='userdetails.php?id=" . (int) $receiver . "'>" . htmlsafechars($user['username']) . "</a></div>
                          <div class='cblock-content'>
                              <table class='main' width='750' border='0' cellspacing='0' cellpadding='0'>
                                    <tr>
@@ -178,12 +180,9 @@ $mm_template[3] = array( $lang['sendmessage_mm_template3_sub'], $lang['sendmessa
                                          <div style='text-align:center;'>
                                              <form method='post' action='takemessage.php'>";
 
-      if (isset($_GET["returnto"]) || isset($_SERVER["HTTP_REFERER"]))
-      {
-        $HTMLOUT .= "                             <input type='hidden' name='returnto' value='".(isset($_GET["returnto"]) ? $_GET["returnto"] : $_SERVER["HTTP_REFERER"])."' />";
-      }
-      
-      $HTMLOUT .= "                               <table border='1' cellspacing='0' cellpadding='5'>
+      $HTMLOUT .= "                               <input type='hidden' name='csrf_token' value='" . htmlsafechars($message_csrf) . "' />
+                                                 <input type='hidden' name='returnto' value='messages.php' />
+                                                 <table border='1' cellspacing='0' cellpadding='5'>
                                                         <tr>
                                                            <td colspan='2'><b>{$lang['sendmessage_subject']}</b>
                                                               <input name='subject' type='text' size='76' value='".(isset($subject) ? htmlsafechars($subject) : '')."' />
@@ -203,7 +202,7 @@ $mm_template[3] = array( $lang['sendmessage_mm_template3_sub'], $lang['sendmessa
                                                         </tr>
                                                        <tr><td".($replyto ? " colspan='2'":'')." align='center'><input type='submit' value='{$lang['sendmessage_send_it']}' class='btn' /></td></tr>
                                                  </table>
-                                                 <input type='hidden' name='receiver' value='$receiver' />
+                                                 <input type='hidden' name='receiver' value='" . (int) $receiver . "' />
                                             </form><!--";
 
       if ($CURUSER['class'] >= UC_MODERATOR)
@@ -224,13 +223,8 @@ $mm_template[3] = array( $lang['sendmessage_mm_template3_sub'], $lang['sendmessa
 
         $HTMLOUT .= "                                        </select>";
         
-        if (isset($_SERVER["HTTP_REFERER"])) 
-        { 
-          $HTMLOUT .= "                                      <input type='hidden' name='returnto' value='".(isset($_GET["returnto"]) ? $_GET["returnto"]:$_SERVER["HTTP_REFERER"])."' />";
-        }
-        
-        $HTMLOUT .= "                                        <input type='hidden' name='receiver' value='$receiver' />
-                                                             <input type='hidden' name='replyto' value='$replyto' />
+        $HTMLOUT .= "                                        <input type='hidden' name='receiver' value='" . (int) $receiver . "' />
+                                                             <input type='hidden' name='replyto' value='" . (int) $replyto . "' />
                                                              <input type='submit' value='{$lang['sendmessage_use']}' class='btn' />
                                                           </td>
                                                        </tr>
