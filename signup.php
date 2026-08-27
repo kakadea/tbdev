@@ -19,6 +19,8 @@
 require_once "include/bittorrent.php";
 require_once ROOT_PATH."/cache/timezones.php";
 
+security_session_start();
+$csrf = security_csrf_token('signup');
 dbconn();
     
     if( isset($CURUSER) )
@@ -32,14 +34,10 @@ dbconn();
     $HTMLOUT = '';
     $js = '';
     
-    if( $TBDEV['captcha'] )
+    if ($TBDEV['captcha'])
     {
-      ini_set('session.use_trans_sid', '0');
-
-      // Begin the session
-      session_start();
-      if (isset($_SESSION['captcha_time']))
-      (TIME_NOW - $_SESSION['captcha_time'] < 10) ? exit($lang['captcha_spam']) : NULL;
+      if (isset($_SESSION['captcha_time']) && TIME_NOW - (int) $_SESSION['captcha_time'] < 10)
+        exit($lang['captcha_spam']);
     
       $js = "<script type='text/javascript' src='captcha/captcha.js'></script>";
     }
@@ -76,12 +74,13 @@ dbconn();
                          <div class='cblock-lb'>    <p>{$lang['signup_cookies']}</p>  </div>
                          <div class='cblock-content'>
                              <form method='post' action='takesignup.php'>
+                                  <input type='hidden' name='csrf_token' value='" . htmlsafechars($csrf) . "' />
                                   <table border='1' cellspacing='0' cellpadding='10'>
-                                        <tr><td align='right' class='heading'>{$lang['signup_uname']}</td><td align='left'><input type='text' size='40' name='wantusername' /></td></tr>
-                                        <tr><td align='right' class='heading'>{$lang['signup_pass']}</td><td align='left'><input type='password' size='40' name='wantpassword' /></td></tr>
-                                        <tr><td align='right' class='heading'>{$lang['signup_passa']}</td><td align='left'><input type='password' size='40' name='passagain' /></td></tr>
+                                        <tr><td align='right' class='heading'>{$lang['signup_uname']}</td><td align='left'><input type='text' size='40' name='wantusername' autocomplete='username' minlength='3' maxlength='40' required /></td></tr>
+                                        <tr><td align='right' class='heading'>{$lang['signup_pass']}</td><td align='left'><input type='password' size='40' name='wantpassword' autocomplete='new-password' minlength='10' maxlength='200' required /></td></tr>
+                                        <tr><td align='right' class='heading'>{$lang['signup_passa']}</td><td align='left'><input type='password' size='40' name='passagain' autocomplete='new-password' minlength='10' maxlength='200' required /></td></tr>
                                         <tr valign='top'>
-                                           <td align='right' class='heading'>{$lang['signup_email']}</td><td align='left'><input type='text' size='40' name='email' />
+                                           <td align='right' class='heading'>{$lang['signup_email']}</td><td align='left'><input type='email' size='40' name='email' autocomplete='email' maxlength='80' required />
                                               <table width='250' border='0' cellspacing='0' cellpadding='0'><tr><td class='embedded'><div class='small'>{$lang['signup_valemail']}</div></td></tr></table>
                                            </td>
                                         </tr>
@@ -101,7 +100,7 @@ dbconn();
                                         </tr>
                                         <tr>
                                            <td class='rowhead'>{$lang['captcha_pin']}</td>
-                                           <td><input type='text' maxlength='6' name='captcha' id='captcha' onblur='check(); return false;'/></td>
+                                           <td><input type='text' maxlength='6' name='captcha' id='captcha' autocomplete='off' required /></td>
                                         </tr>";
     }
 

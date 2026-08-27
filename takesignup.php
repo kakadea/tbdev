@@ -20,6 +20,20 @@
 require_once "include/bittorrent.php";
 require_once "include/password_functions.php";
 
+security_session_start();
+if (!security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'signup'))
+{
+  http_response_code(400);
+  exit('Invalid signup request.');
+}
+
+$signup_identity = security_client_identity() . '|' . strtolower(trim(isset($_POST['email']) ? (string) $_POST['email'] : ''));
+if (!security_rate_limit('signup', $signup_identity, 3, 3600))
+{
+  http_response_code(429);
+  exit('Too many signup attempts. Please try again later.');
+}
+
 dbconn();
 
     $lang = array_merge( load_language('global'), load_language('takesignup') );
@@ -39,18 +53,19 @@ dbconn();
         stderr($lang['takesignup_user_error'], $lang['takesignup_form_data']);
       }
       
-      ${$x} = $_POST[ $x ];
+      ${$x} = (string) $_POST[$x];
+      if ($x !== 'wantpassword')
+        ${$x} = trim(${$x});
     }
     
-    if( $TBDEV['captcha'] )
+    if ($TBDEV['captcha'])
     {
-      session_start();
-      
-      if(!isset($_POST['captcha']) || empty($_POST['captcha']) || $_SESSION['captcha_id'] != strtoupper($_POST['captcha']))
+      if (!isset($_POST['captcha']) || empty($_POST['captcha']) || empty($_SESSION['captcha_id']) || $_SESSION['captcha_id'] !== strtoupper((string) $_POST['captcha']))
       {
           header('Location: signup.php');
           exit();
       }
+      unset($_SESSION['captcha_id'], $_SESSION['captcha_time']);
     }
 
 function validusername($username){
@@ -104,11 +119,11 @@ function isproxy()
     if ($wantpassword != $passagain)
       stderr($lang['takesignup_user_error'], $lang['takesignup_nomatch']);
 
-    if (strlen($wantpassword) < 6)
-      stderr($lang['takesignup_user_error'], $lang['takesignup_pass_short']);
+    if (strlen($wantpassword) < 10)
+      stderr($lang['takesignup_user_error'], 'Password must be at least 10 characters long.');
 
-    if (strlen($wantpassword) > 40)
-      stderr($lang['takesignup_user_error'], $lang['takesignup_pass_long']);
+    if (strlen($wantpassword) > 200)
+      stderr($lang['takesignup_user_error'], 'Password must not exceed 200 characters.');
 
     if ($wantpassword == $wantusername)
       stderr($lang['takesignup_user_error'], $lang['takesignup_same']);
@@ -120,11 +135,12 @@ function isproxy()
       stderr($lang['takesignup_user_error'], $lang['takesignup_invalidname']);
 
     // make sure user agrees to everything...
-    if ($_POST["rulesverify"] != "yes" || $_POST["faqverify"] != "yes" || $_POST["ageverify"] != "yes")
+    if (isset($_POST['rulesverify']) !== true || isset($_POST['faqverify']) !== true || isset($_POST['ageverify']) !== true ||
+        $_POST['rulesverify'] !== 'yes' || $_POST['faqverify'] !== 'yes' || $_POST['ageverify'] !== 'yes')
       stderr($lang['takesignup_failed'], $lang['takesignup_qualify']);
 
     // check if email addy is already in use
-    $a = (@mysql_fetch_row(@mysql_query("select count(*) from users where email='$email'"))) or die(mysql_error());
+    $a = (@mysql_fetch_row(@mysql_query("SELECT count(*) FROM users WHERE email = " . sqlesc($email)))) or die(mysql_error());
     if ($a[0] != 0)
       stderr($lang['takesignup_user_error'], $lang['takesignup_email_used']);
 
