@@ -22,14 +22,21 @@ if ( ! defined( 'IN_TBDEV_FORUM' ) )
 	exit();
 }
 
+security_session_start();
+$forum_mod_csrf = security_csrf_token('forum-mod');
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'forum-mod'))
+{
+  http_response_code(400);
+  exit('Invalid forum moderation request.');
+}
 
   //-------- Action: Lock topic
 
   if ($action == "locktopic")
   {
-    $forumid = 0+$_GET["forumid"];
-    $topicid = 0+$_GET["topicid"];
-    $page = 0+$_GET["page"];
+    $forumid = isset($_GET['forumid']) && !is_array($_GET['forumid']) ? (int) $_GET['forumid'] : 0;
+    $topicid = isset($_GET['topicid']) && !is_array($_GET['topicid']) ? (int) $_GET['topicid'] : 0;
+    $page = isset($_GET['page']) && !is_array($_GET['page']) ? (int) $_GET['page'] : 0;
 
     if (!is_valid_id($topicid) || get_user_class() < UC_MODERATOR)
       stderr("{$lang['forum_mod_options_user_error']}", "{$lang['forum_mod_options_incorrect']}");
@@ -45,11 +52,9 @@ if ( ! defined( 'IN_TBDEV_FORUM' ) )
 
   if ($action == "unlocktopic")
   {
-    $forumid = 0+$_GET["forumid"];
-
-    $topicid = 0+$_GET["topicid"];
-
-    $page = 0+$_GET["page"];
+    $forumid = isset($_GET['forumid']) && !is_array($_GET['forumid']) ? (int) $_GET['forumid'] : 0;
+    $topicid = isset($_GET['topicid']) && !is_array($_GET['topicid']) ? (int) $_GET['topicid'] : 0;
+    $page = isset($_GET['page']) && !is_array($_GET['page']) ? (int) $_GET['page'] : 0;
 
     if (!is_valid_id($topicid) || get_user_class() < UC_MODERATOR)
       stderr("{$lang['forum_mod_options_user_error']}", "{$lang['forum_mod_options_incorrect']}");
@@ -65,12 +70,15 @@ if ( ! defined( 'IN_TBDEV_FORUM' ) )
 
   if ($action == "setlocked")
   {
-    $topicid = (int)$_POST["topicid"];
+    $topicid = isset($_POST['topicid']) && !is_array($_POST['topicid']) ? (int) $_POST['topicid'] : 0;
 
-    if (!$topicid || get_user_class() < UC_MODERATOR)
-      stderr("{$lang['forum_mod_options_user_error']}", "{$lang['forum_mod_options_incorrect']}");
+    if (!is_valid_id($topicid) || get_user_class() < UC_MODERATOR)
+      stderr($lang['forum_mod_options_user_error'], $lang['forum_mod_options_incorrect']);
 
-    $locked = sqlesc($_POST["locked"]);
+    $locked_value = isset($_POST['locked']) && is_string($_POST['locked']) ? $_POST['locked'] : '';
+    if (!in_array($locked_value, array('yes', 'no'), true))
+      stderr($lang['forum_mod_options_user_error'], $lang['forum_mod_options_incorrect']);
+    $locked = sqlesc($locked_value);
     
     @mysql_query("UPDATE topics SET locked=$locked WHERE id=$topicid") or sqlerr(__FILE__, __LINE__);
 
@@ -83,12 +91,15 @@ if ( ! defined( 'IN_TBDEV_FORUM' ) )
 
   if ($action == "setsticky")
   {
-    $topicid = (int)$_POST["topicid"];
+    $topicid = isset($_POST['topicid']) && !is_array($_POST['topicid']) ? (int) $_POST['topicid'] : 0;
 
-    if (!$topicid || get_user_class() < UC_MODERATOR)
-      stderr("{$lang['forum_mod_options_user_error']}", "{$lang['forum_mod_options_incorrect']}");
+    if (!is_valid_id($topicid) || get_user_class() < UC_MODERATOR)
+      stderr($lang['forum_mod_options_user_error'], $lang['forum_mod_options_incorrect']);
 
-    $sticky = sqlesc($_POST["sticky"]);
+    $sticky_value = isset($_POST['sticky']) && is_string($_POST['sticky']) ? $_POST['sticky'] : '';
+    if (!in_array($sticky_value, array('yes', 'no'), true))
+      stderr($lang['forum_mod_options_user_error'], $lang['forum_mod_options_incorrect']);
+    $sticky = sqlesc($sticky_value);
     
     @mysql_query("UPDATE topics SET sticky=$sticky WHERE id=$topicid") or sqlerr(__FILE__, __LINE__);
 
@@ -104,39 +115,37 @@ if ( ! defined( 'IN_TBDEV_FORUM' ) )
   	if (get_user_class() < UC_MODERATOR)
   	  stderr("{$lang['forum_mod_options_user_error']}", "{$lang['forum_mod_options_incorrect']}");
 
-  	$topicid = (int)$_POST['topicid'];
+	$topicid = isset($_POST['topicid']) && !is_array($_POST['topicid']) ? (int) $_POST['topicid'] : 0;
 
-  	if (!is_valid_id($topicid))
+	if (!is_valid_id($topicid))
   	  stderr("{$lang['forum_mod_options_user_error']}", "{$lang['forum_mod_options_incorrect']}");
 
-  	$subject = $_POST['subject'];
+	$subject = isset($_POST['subject']) && is_string($_POST['subject']) ? trim(strip_tags($_POST['subject'])) : '';
 
-  	if ($subject == '')
-  	  stderr("{$lang['forum_mod_options_error']}","{$lang['forum_mod_options_new_title']}");
+	if ($subject === '')
+	  stderr($lang['forum_mod_options_error'], $lang['forum_mod_options_new_title']);
+	if (strlen($subject) > 120)
+	  stderr($lang['forum_mod_options_error'], $lang['forum_mod_options_new_title']);
 
-  	$subject = sqlesc(trim(strip_tags($subject)));
+	$subject = sqlesc($subject);
 
   	@mysql_query("UPDATE topics SET subject=$subject WHERE id=$topicid") or sqlerr();
 
-  	$returnto = $_POST['returnto'];
-
-  	if ($returnto)
-  	  header("Location: {$TBDEV['baseurl']}/forums.php?action=viewtopic&topicid=$topicid");
-
-  	die;
+	header("Location: {$TBDEV['baseurl']}/forums.php?action=viewtopic&topicid=$topicid");
+		exit;
   }
 
   //-------- Action: Delete topic
 
   if ($action == "deletetopic")
   {
-    $topicid = isset($_POST["topicid"]) ? (int)$_POST["topicid"] : 0;
-    $forumid = isset($_POST["forumid"]) ? (int)$_POST["forumid"] : 0;
+    $topicid = isset($_POST['topicid']) && !is_array($_POST['topicid']) ? (int) $_POST['topicid'] : 0;
+    $forumid = isset($_POST['forumid']) && !is_array($_POST['forumid']) ? (int) $_POST['forumid'] : 0;
 
     if (!is_valid_id($topicid) || get_user_class() < UC_MODERATOR)
       stderr("{$lang['forum_mod_options_user_error']}", "{$lang['forum_mod_options_incorrect']}");
 
-    $sure = isset($_POST["sure"]) ? $_POST["sure"] : 0;
+    $sure = isset($_POST['sure']) && (string) $_POST['sure'] === '1';
 
     if (!$sure)
     {
@@ -176,9 +185,8 @@ if ( ! defined( 'IN_TBDEV_FORUM' ) )
 
   if ($action == "movetopic")
   {
-    $forumid = (int)$_POST["forumid"];
-
-    $topicid = (int)$_POST["topicid"];
+    $forumid = isset($_POST['forumid']) && !is_array($_POST['forumid']) ? (int) $_POST['forumid'] : 0;
+    $topicid = isset($_POST['topicid']) && !is_array($_POST['topicid']) ? (int) $_POST['topicid'] : 0;
 
     if (!is_valid_id($forumid) || !is_valid_id($topicid) || get_user_class() < UC_MODERATOR)
       stderr("{$lang['forum_mod_options_user_error']}", "{$lang['forum_mod_options_incorrect']}");
