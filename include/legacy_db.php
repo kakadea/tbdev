@@ -82,6 +82,47 @@ function mysql_query($query, $link_identifier = null)
     return $link instanceof mysqli ? @mysqli_query($link, $query) : false;
 }
 
+/**
+ * Execute one prepared statement and return the mysqli_stmt on success.
+ * Callers may use mysqli_stmt_get_result() for SELECTs and close the
+ * statement with mysqli_stmt_close() after consuming it.
+ */
+function tbdev_db_prepare_execute($query, $types = '', array $params = array(), $link_identifier = null)
+{
+    $link = $link_identifier ?: tbdev_db_link();
+    if (!$link instanceof mysqli)
+        return false;
+    if ($types !== '' && strlen($types) !== count($params))
+        return false;
+
+    $stmt = @mysqli_prepare($link, $query);
+    if (!$stmt)
+        return false;
+
+    if ($types !== '')
+    {
+        $bind = array($types);
+        foreach ($params as $index => $value)
+        {
+            $params[$index] = $value;
+            $bind[] = &$params[$index];
+        }
+        if (!@call_user_func_array(array($stmt, 'bind_param'), $bind))
+        {
+            mysqli_stmt_close($stmt);
+            return false;
+        }
+    }
+
+    if (!@mysqli_stmt_execute($stmt))
+    {
+        mysqli_stmt_close($stmt);
+        return false;
+    }
+
+    return $stmt;
+}
+
 function mysql_fetch_assoc($result)
 {
     return $result instanceof mysqli_result ? mysqli_fetch_assoc($result) : false;

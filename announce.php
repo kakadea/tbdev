@@ -188,19 +188,34 @@ $seeder = ($left == 0) ? "yes" : "no";
 dbconn();
 
 
-$user_query = mysql_query("SELECT id, uploaded, downloaded, class, enabled FROM users WHERE passkey=".sqlesc($passkey)) or err("Tracker error 2");
-
-if ( mysql_num_rows($user_query) != 1 )
-
- err("Unknown passkey. Please redownload the torrent from {$TBDEV['baseurl']}.");
- 
-	$user = mysql_fetch_assoc($user_query);
+$user_stmt = tbdev_db_prepare_execute(
+  'SELECT id, uploaded, downloaded, class, enabled FROM users WHERE passkey = ? LIMIT 1',
+  's',
+  array($passkey)
+);
+if (!$user_stmt)
+  err('Tracker error 2');
+$user_query = mysqli_stmt_get_result($user_stmt);
+if (!$user_query || mysqli_num_rows($user_query) !== 1)
+  err("Unknown passkey. Please redownload the torrent from {$TBDEV['baseurl']}.");
+$user = mysqli_fetch_assoc($user_query);
+mysqli_free_result($user_query);
+mysqli_stmt_close($user_stmt);
 	if( $user['enabled'] == 'no' ) err('Permission denied, you\'re not enabled');
 	
 	
-$res = mysql_query("SELECT id, banned, seeders + leechers AS numpeers, added AS ts FROM torrents WHERE info_hash = " .sqlesc($info_hash));//" . hash_where("info_hash", $info_hash));
-
-$torrent = mysql_fetch_assoc($res);
+$torrent_stmt = tbdev_db_prepare_execute(
+  'SELECT id, banned, seeders + leechers AS numpeers, added AS ts FROM torrents WHERE info_hash = ? LIMIT 1',
+  's',
+  array($info_hash)
+);
+if (!$torrent_stmt)
+  err('Tracker error 2');
+$res = mysqli_stmt_get_result($torrent_stmt);
+$torrent = $res ? mysqli_fetch_assoc($res) : false;
+if ($res)
+  mysqli_free_result($res);
+mysqli_stmt_close($torrent_stmt);
 if (!$torrent)
 	err("torrent not registered with this tracker CODE 2");
 
@@ -219,8 +234,17 @@ $fields = "seeder, peer_id, compact, ip, port, uploaded, downloaded, userid";
   if ($seeder == 'yes')
     $whereap = "AND seeder = 'no'";
     
-  $res = mysql_query("SELECT $fields FROM peers WHERE torrent = $torrentid AND connectable = 'yes' {$whereap} {$limit}");
-  
+  $peer_stmt = tbdev_db_prepare_execute(
+    "SELECT $fields FROM peers WHERE torrent = ? AND connectable = 'yes' {$whereap} {$limit}",
+    'i',
+    array($torrentid)
+  );
+if (!$peer_stmt)
+    err('Tracker error 2');
+  $res = mysqli_stmt_get_result($peer_stmt);
+  if (!$res)
+    err('Tracker error 2');
+
   unset($whereap);
   
 //////////////////// START NEW COMPACT MODE/////////////////////////////
@@ -232,14 +256,16 @@ $fields = "seeder, peer_id, compact, ip, port, uploaded, downloaded, userid";
 
   $peer_num = 0;
   
-  while ($row = mysql_fetch_assoc($res))
+  while ($row = $res ? mysqli_fetch_assoc($res) : false)
   {
     $peers .= $row['compact']; //pack('Nn', ip2long($row['ip']), $row['port']);
 
     $peer_num++;
   }
-
-
+  if ($res)
+    mysqli_free_result($res);
+  if (isset($peer_stmt) && $peer_stmt)
+    mysqli_stmt_close($peer_stmt);
 
 $resp .= strlen($peers) . ':' . $peers . 'e';
 
@@ -270,7 +296,21 @@ if (!isset($self))
 
 {
 
-$valid = @mysql_fetch_row(@mysql_query("SELECT COUNT(*) FROM peers WHERE torrent=$torrentid AND passkey=" . sqlesc($passkey)));
+  $valid_stmt = tbdev_db_prepare_execute(
+    'SELECT COUNT(*) FROM peers WHERE torrent = ? AND passkey = ?',
+    'is',
+    array($torrentid, $passkey)
+  );
+  if (!$valid_stmt)
+    err('Tracker error 2');
+  $valid_result = mysqli_stmt_get_result($valid_stmt);
+  if (!$valid_result)
+    err('Tracker error 2');
+  $valid = mysqli_fetch_row($valid_result);
+  if ($valid_result)
+    mysqli_free_result($valid_result);
+  if ($valid_stmt)
+    mysqli_stmt_close($valid_stmt);
 
 if ($valid[0] >= 1 && $seeder == 'no') err("Connection limit exceeded! You may only leech from one location at a time.");
 
@@ -296,8 +336,17 @@ else
 	$upthis = max(0, $uploaded - $self["uploaded"]);
 	$downthis = max(0, $downloaded - $self["downloaded"]);
 
-	if ($upthis > 0 || $downthis > 0)
-		mysql_query("UPDATE users SET uploaded = uploaded + $upthis, downloaded = downloaded + $downthis WHERE id=".$user['id']) or err("Tracker error 3");
+    if ($upthis > 0 || $downthis > 0)
+    {
+      $stats_stmt = tbdev_db_prepare_execute(
+        'UPDATE users SET uploaded = uploaded + ?, downloaded = downloaded + ? WHERE id = ?',
+        'ddi',
+        array((float) $upthis, (float) $downthis, (int) $user['id'])
+      );
+      if (!$stats_stmt)
+        err('Tracker error 3');
+      mysqli_stmt_close($stats_stmt);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
