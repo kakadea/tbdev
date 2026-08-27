@@ -146,12 +146,23 @@ function isproxy()
       stderr($lang['takesignup_user_error'], $lang['takesignup_email_used']);
 
     // TIMEZONE STUFF
-    if(isset($_POST["user_timezone"]) && preg_match('#^\-?\d{1,2}(?:\.\d{1,2})?$#', $_POST['user_timezone']))
+    $time_offset = 0.0;
+    $timezone_input = isset($_POST['user_timezone']) && is_scalar($_POST['user_timezone'])
+        ? (string) $_POST['user_timezone']
+        : '';
+    if (preg_match('#\A-?\d{1,2}(?:\.\d{1,2})?\z#', $timezone_input))
     {
-    $time_offset = sqlesc($_POST['user_timezone']);
+        $candidate_offset = (float) $timezone_input;
+        if (is_finite($candidate_offset) && $candidate_offset >= -12 && $candidate_offset <= 14)
+            $time_offset = $candidate_offset;
     }
-    else
-    { $time_offset = isset($TBDEV['time_offset']) ? sqlesc($TBDEV['time_offset']) : '0'; }
+    elseif (isset($TBDEV['time_offset']) && is_numeric($TBDEV['time_offset']))
+    {
+        $candidate_offset = (float) $TBDEV['time_offset'];
+        if (is_finite($candidate_offset) && $candidate_offset >= -12 && $candidate_offset <= 14)
+            $time_offset = $candidate_offset;
+    }
+    $time_offset_sql = sqlesc((string) $time_offset);
     // have a stab at getting dst parameter?
     $dst_in_use = localtime(TIME_NOW + ($time_offset * 3600), true);
     // TIMEZONE STUFF END
@@ -165,7 +176,7 @@ function isproxy()
 
     $ret = mysql_query("INSERT INTO users (username, passhash, password_hash, secret, editsecret, email, status, " . (!$arr[0] ? "class, " : "") . "added, time_offset, dst_in_use) VALUES (" .
         implode(",", array_map("sqlesc", array($wantusername, $wantpasshash, $modernpasshash, $secret, $editsecret, $email, (!$arr[0] ? 'confirmed' : 'pending')))) .
-        ", " . (!$arr[0] ? UC_SYSOP . ", " : "") . "" . TIME_NOW . " , $time_offset, {$dst_in_use['tm_isdst']})");
+        ", " . (!$arr[0] ? UC_SYSOP . ", " : "") . "" . TIME_NOW . " , $time_offset_sql, {$dst_in_use['tm_isdst']})");
 
     if (!$ret) 
     {

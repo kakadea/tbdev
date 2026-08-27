@@ -332,10 +332,9 @@ img { border: 0; vertical-align: middle; }
     width:50%;
     border: 1px solid;
     margin: 10px auto;
-    padding:15px 10px 15px 50px;
+    padding: 1rem;
     color: #D8000C;
-    background:#FFBABA url('images/error.png') no-repeat;
-    background-position: 15px 50%; /* x-pos y-pos */
+    background: #FFBABA;
     -webkit-border-radius: 5px;
     -moz-border-radius: 5px;
     border-radius: 5px;

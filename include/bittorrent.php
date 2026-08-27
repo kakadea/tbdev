@@ -183,8 +183,12 @@ function autoclean() {
 }
 
 function unesc($x) {
-    if (get_magic_quotes_gpc())
+    if (!is_string($x))
+        return $x;
+
+    if (function_exists('get_magic_quotes_gpc') && get_magic_quotes_gpc())
         return stripslashes($x);
+
     return $x;
 }
 
