@@ -207,8 +207,8 @@ function maketable($res)
     $HTMLOUT .= begin_main_frame();
 
     $HTMLOUT .= "<table width='100%' border='1' cellspacing='0' cellpadding='5'>
-    <tr><td class='rowhead' style='width:1%;'>{$lang['userdetails_joined']}</td><td style='width:595px;text-align:left;'>{$joindate}</td></tr>
-    <tr><td class='rowhead'>{$lang['userdetails_seen']}</td><td align='left'>{$lastseen}</td></tr>";
+    <tr class='data-row'><td class='rowhead'>{$lang['userdetails_joined']}</td><td class='data-cell' align='left'>{$joindate}</td></tr>
+    <tr class='data-row'><td class='rowhead'>{$lang['userdetails_seen']}</td><td class='data-cell' align='left'>{$lastseen}</td></tr>";
 
     if ($CURUSER['class'] >= UC_MODERATOR)
       $HTMLOUT .= "<tr><td class='rowhead'>{$lang['userdetails_email']}</td><td align='left'><a href='{$TBDEV['baseurl']}/email-gateway.php?id={$user['id']}'>{$user['email']}</a></td></tr>\n";

@@ -87,7 +87,7 @@
 			$a = str_replace("\n", "<br />\n", $a);
 		}
 		
-		return "<tr><td class='heading' valign='top' align='right'>$x</td><td valign='top' align='left'>$a</td></tr>\n";
+            return "<tr class='data-row'><td class='heading rowhead' valign='top' align='right'>$x</td><td class='data-cell' valign='top' align='left'>$a</td></tr>\n";
 	}
 
 

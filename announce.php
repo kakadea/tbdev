@@ -154,10 +154,10 @@ unset($x);
 
 $info_hash = bin2hex($info_hash);
 
-$ip = isset($_SERVER['REMOTE_ADDR']) && filter_var($_SERVER['REMOTE_ADDR'], FILTER_VALIDATE_IP)
+$ip = isset($_SERVER['REMOTE_ADDR']) && filter_var($_SERVER['REMOTE_ADDR'], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)
   ? $_SERVER['REMOTE_ADDR'] : '';
 if ($ip === '')
-  err('Invalid client address');
+  err('This tracker laboratory currently requires an IPv4 client address.');
 
 $port = 0 + $port;
 $downloaded = 0 + $downloaded;
@@ -221,7 +221,7 @@ if (!$torrent)
 
 $torrentid = $torrent["id"];
 
-$fields = "seeder, peer_id, compact, ip, port, uploaded, downloaded, userid";
+$fields = "seeder, peer_id, ip, port, uploaded, downloaded, userid";
 
 //$numpeers = $torrent["numpeers"];
   $limit = "";
@@ -258,7 +258,10 @@ if (!$peer_stmt)
   
   while ($row = $res ? mysqli_fetch_assoc($res) : false)
   {
-    $peers .= $row['compact']; //pack('Nn', ip2long($row['ip']), $row['port']);
+    $peer_ip = filter_var($row['ip'], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4);
+    $peer_port = (int) $row['port'];
+    if ($peer_ip !== false && $peer_port > 0 && $peer_port <= 0xffff)
+      $peers .= pack('Nn', (int) ip2long($peer_ip), $peer_port);
 
     $peer_num++;
   }
@@ -328,7 +331,7 @@ if ($valid[0] >= 3 && $seeder == 'yes') err("Connection limit exceeded!");
 		elseif ($ratio < 0.95 || $gigs < 9.5) $wait = 6;
 		else $wait = 0;
 		if ($elapsed < $wait)
-				err("Not authorized (" . ($wait - $elapsed) . "h) - READ THE FAQ!");
+				err("Not authorized (" . ($wait - $elapsed) . "h) - please read the rules.");
 	}
 }
 else
@@ -375,18 +378,13 @@ else
 
 	if (isset($self))
 	{
-		$compact = '';
-		// only update compact if ip or port has changed
-    if( $self['ip'] != $ip || ($self['port']+0) != $port )
-    {
-      $compact = "compact = ".sqlesc(pack('Nn', ip2long($ip), $port)).',';
-    }
-		
-		mysql_query("UPDATE peers SET uploaded = $uploaded, downloaded = $downloaded, 
-		to_go = $left, last_action = ".TIME_NOW.", $compact
-		seeder = '$seeder'"
-			. ($seeder == "yes" && $self["seeder"] != $seeder ? ", 
-			finishedat = " . TIME_NOW : "") . " WHERE $selfwhere");
+            $peer_update = '';
+            if ($self['ip'] != $ip || ($self['port'] + 0) != $port)
+                $peer_update = ', ip = ' . sqlesc($ip) . ', port = ' . $port;
+
+            mysql_query("UPDATE peers SET uploaded = $uploaded, downloaded = $downloaded,
+            to_go = $left, last_action = " . TIME_NOW . ", seeder = '$seeder'" . $peer_update
+                . ($seeder == "yes" && $self["seeder"] != $seeder ? ", finishedat = " . TIME_NOW : "") . " WHERE $selfwhere");
 			
 		if (mysql_affected_rows() && $self["seeder"] != $seeder)
 		{
@@ -427,9 +425,7 @@ else
       $connectable = 'yes';
 		}
     
-    $compact = sqlesc(pack('Nn', ip2long($ip), $port));
-    
-		$ret = mysql_query("INSERT INTO peers (connectable, torrent, peer_id, compact, ip, port, uploaded, downloaded, to_go, started, last_action, seeder, userid, agent, passkey) VALUES ('$connectable', $torrentid, " . sqlesc($peer_id) . ", $compact, " . sqlesc($ip) . ", $port, $uploaded, $downloaded, $left, ".TIME_NOW.", ".TIME_NOW.", '$seeder', {$user['id']}, " . sqlesc($agent) . "," . sqlesc($passkey) . ")");
+            $ret = mysql_query("INSERT INTO peers (connectable, torrent, peer_id, ip, port, uploaded, downloaded, to_go, started, last_action, seeder, userid, agent, passkey) VALUES ('$connectable', $torrentid, " . sqlesc($peer_id) . ", " . sqlesc($ip) . ", $port, $uploaded, $downloaded, $left, " . TIME_NOW . ", " . TIME_NOW . ", '$seeder', {$user['id']}, " . sqlesc($agent) . "," . sqlesc($passkey) . ")");
 		
 		if ($ret)
 		{

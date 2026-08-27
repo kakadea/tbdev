@@ -162,7 +162,7 @@ if (!$row || ($row["banned"] == "yes" && !$moderator))
                     if (is_file($category_file))
                         $category_icon = "<img class='category-icon' src='" . htmlsafechars($category_file) . "' alt='' />";
                 }
-                $HTMLOUT .= tr("{$lang['details_type']}", "<span class='category-pill'>{$category_icon}{$category_name}</span>");
+                $HTMLOUT .= tr("{$lang['details_type']}", "<span class='category-pill'>{$category_icon}{$category_name}</span>", 1);
             } else {
                 $HTMLOUT .= tr("{$lang['details_type']}", "{$lang['details_none']}");
             }

@@ -29,6 +29,7 @@ php tests/theme_assets_test.php
 php tests/signup_schema_test.php
 php tests/upload_filename_test.php
 php tests/bbcode_image_test.php
+php tests/announce_schema_test.php
 git diff --check
 
 echo "Static and security checks passed."

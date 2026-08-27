@@ -106,7 +106,7 @@ function mytorrenttable( $res ) {
 	        if ($elapsed < $wait)
 	        {
 	          $color = dechex(floor(127*($wait - $elapsed)/48 + 128)*65536);
-	          $htmlout .= "<td align='center'><span style='white-space: nowrap;'><a href='faq.php#dl8'><div style='color:$color;'>" . number_format($wait - $elapsed) . " ".$lang["torrenttable_wait_h"]."</div></a></span></td>\n";
+	          $htmlout .= "<td align='center'><span style='white-space: nowrap;'><a href='rules.php'><div style='color:$color;'>" . number_format($wait - $elapsed) . " ".$lang["torrenttable_wait_h"]."</div></a></span></td>\n";
 	        }
 	        else
 	          $htmlout .= "<td align='center'><span style='white-space: nowrap;'>{$lang["torrenttable_wait_none"]}</span></td>\n";
