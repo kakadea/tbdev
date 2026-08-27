@@ -106,9 +106,8 @@ dbconn();
 
     $HTMLOUT .= "                       <tr>
                                            <td align='right' class='heading'></td>
-                                           <td align='left'><input type='checkbox' name='rulesverify' value='yes' /> {$lang['signup_rules']}<br />
-                                              <input type='checkbox' name='faqverify' value='yes' /> {$lang['signup_faq']}<br />
-                                              <input type='checkbox' name='ageverify' value='yes' /> {$lang['signup_age']}
+                                           <td align='left'><input type='checkbox' name='rulesverify' value='yes' required /> {$lang['signup_rules']}<br />
+                                              <input type='checkbox' name='ageverify' value='yes' required /> {$lang['signup_age']}
                                            </td>
                                         </tr>
                                         <tr><td colspan='2' align='center'><input type='submit' value='{$lang['signup_btn']}' style='height: 25px' /></td></tr>

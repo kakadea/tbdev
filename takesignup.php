@@ -136,8 +136,8 @@ function isproxy()
       stderr($lang['takesignup_user_error'], $lang['takesignup_invalidname']);
 
     // make sure user agrees to everything...
-    if (isset($_POST['rulesverify']) !== true || isset($_POST['faqverify']) !== true || isset($_POST['ageverify']) !== true ||
-        $_POST['rulesverify'] !== 'yes' || $_POST['faqverify'] !== 'yes' || $_POST['ageverify'] !== 'yes')
+    if (isset($_POST['rulesverify']) !== true || isset($_POST['ageverify']) !== true ||
+        $_POST['rulesverify'] !== 'yes' || $_POST['ageverify'] !== 'yes')
       stderr($lang['takesignup_failed'], $lang['takesignup_qualify']);
 
     // check if email addy is already in use
@@ -220,9 +220,12 @@ function isproxy()
 
     if ($signup_status === 'pending') {
       $mail_sent = mail($email, "{$TBDEV['site_name']} {$lang['takesignup_confirm']}", $body, "{$lang['takesignup_from']} {$TBDEV['site_email']}");
-      if (!$mail_sent)
+      if (!$mail_sent) {
         error_log('TBDev signup confirmation email could not be handed to the local mail transport.');
-      $ok_url = 'ok.php?type=signup&email=' . urlencode($email);
+        $ok_url = 'ok.php?type=signup_pending';
+      } else {
+        $ok_url = 'ok.php?type=signup&email=' . urlencode($email);
+      }
     } else {
       logincookie($id, $wantpasshash);
       $ok_url = !$arr[0] ? 'ok.php?type=sysop' : 'ok.php?type=confirmed';

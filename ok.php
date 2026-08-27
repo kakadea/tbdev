@@ -27,11 +27,15 @@ dbconn();
     
     $HTMLOUT = '';
 
-    if ( $type == "signup" && isset($_GET['email']) ) 
+    if ( $type == "signup" && isset($_GET['email']) )
     {
       stderr( "{$lang['ok_success']}", sprintf($lang['ok_email'], htmlsafechars($_GET['email'])) );
     }
-    elseif ($type == "sysop") 
+    elseif ($type == 'signup_pending')
+    {
+      stderr($lang['ok_pending_title'], $lang['ok_pending_body']);
+    }
+    elseif ($type == "sysop")
     {
       $HTMLOUT = stdhead("{$lang['ok_sysop_account']}");
       $HTMLOUT .= "{$lang['ok_sysop_activated']}";

@@ -666,3 +666,13 @@ textarea { min-height: 120px; }
 .category-filter-icon { width: 36px; height: 36px; object-fit: contain; }
 .category-filter span { overflow-wrap: anywhere; }
 @media (max-width: 720px) { .category-filter { min-width: 0; width: 100%; } }
+
+.bbcode-editor { display: grid; gap: 10px; }
+.editor-toolbar, .editor-smilies { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.editor-button, .smiley-button { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 6px 10px; border: 1px solid var(--tb2-border); border-radius: 8px; color: var(--tb2-primary); background: var(--tb2-surface); cursor: pointer; font: inherit; font-weight: 700; }
+.editor-button:hover, .editor-button:focus-visible, .smiley-button:hover, .smiley-button:focus-visible { border-color: var(--tb2-primary); background: var(--tb2-surface-soft); }
+.smiley-button { width: 36px; height: 34px; padding: 4px; }
+.smiley-button img { max-width: 22px; max-height: 22px; }
+.editor-more { margin-left: auto; }
+.editor-textarea { width: 100%; min-height: 220px; resize: vertical; }
+.description-image { display: block; max-width: min(100%, 720px); max-height: 520px; height: auto; margin: 12px 0; border-radius: 10px; object-fit: contain; }

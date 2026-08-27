@@ -1,6 +1,7 @@
 <?php
 require_once 'include/bittorrent.php';
 require_once 'include/user_functions.php';
+require_once 'include/html_functions.php';
 
 security_session_start();
 $csrf = security_csrf_token('upload');
@@ -31,6 +32,8 @@ if (count($categories) > 0) {
 
 $announce_url = htmlsafechars($TBDEV['announce_urls'][0]);
 $max_size = (int) $TBDEV['max_torrent_size'];
+$description_editor = bbcode2textarea('body');
+$upload_js = "<script type='text/javascript' src='scripts/bbcode2text.js'></script>";
 
 $upload_html = "
 <section class='page-intro'>
@@ -40,7 +43,7 @@ $upload_html = "
     <code class='announce-url'>{$announce_url}</code>
 </section>
 <section class='form-card'>
-    <form class='upload-form' enctype='multipart/form-data' action='takeupload.php' method='post'>
+    <form name='bbcode2text' id='bbcode2text' class='upload-form' enctype='multipart/form-data' action='takeupload.php' method='post'>
         <input type='hidden' name='csrf_token' value='" . htmlsafechars($csrf) . "' />
         <input type='hidden' name='MAX_FILE_SIZE' value='{$max_size}' />
         <div class='form-grid'>
@@ -60,9 +63,9 @@ $upload_html = "
                 <p class='field-help'>Arquivo de informações de texto, limitado pelo servidor.</p>
             </div>
             <div class='form-field form-field-wide'>
-                <label for='torrent-description'>Descrição <span class='required'>*</span></label>
-                <textarea id='torrent-description' name='body' rows='8' maxlength='10000' placeholder='Descreva o conteúdo, versão e observações relevantes.' required></textarea>
-                <p class='field-help'>Use texto simples. HTML e BBCode não são necessários neste formulário.</p>
+                <label for='editor-body'>Descrição <span class='required'>*</span></label>
+                {$description_editor}
+                <p class='field-help'>Imagens externas são opcionais e aceitam somente URLs HTTP(S) terminadas em JPG, PNG, GIF ou WebP. HTML cru nunca é renderizado.</p>
             </div>
             <div class='form-field'>
                 <label for='torrent-type'>Categoria <span class='required'>*</span></label>
@@ -74,4 +77,4 @@ $upload_html = "
     </form>
 </section>";
 
-print stdhead($lang['upload_stdhead']) . $upload_html . stdfoot();
+print stdhead($lang['upload_stdhead'], $upload_js) . $upload_html . stdfoot();

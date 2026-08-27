@@ -118,102 +118,58 @@ function insert_smilies_frame()
 }
 
 
-function bbcode2textarea( $name='body', $body='' ) {
+function bbcode2textarea($name = 'body', $body = '') {
+    global $TBDEV;
 
-  global $TBDEV;
-  
-  $htmlout = '';
-  $body = htmlsafechars($body);
-  $emot_dir = $TBDEV['pic_base_url'].'smilies/';
-/*
-  if( $title != '' )
-  {
-    $title = htmlsafechars($title);
-    $htmlout .= "
-    <tr>
-       <td align='center'>
-       <input style='width:615px;' type='text' name='subject' size='50' value='{$title}' />
-       </td>
-    </tr>";
-  }
-*/
-  $htmlout .= "<div align='center'>
-                <textarea style='width:615px' name='body' cols='55' rows='15'>{$body}</textarea>
-              </div>
-              
-              <div align='center'>
-                <input type='button' value='b' style='font-weight:bold;width:25px;' onclick=\"addText('body', '[b]', '[/b]');\" />
-                <input type='button' value='i' style='font-style:italic;width:25px;' onclick=\"addText('body', '[i]', '[/i]');\" />
-                <input type='button' value='u' style='text-decoration:underline;width:25px;' onclick=\"addText('body', '[u]', '[/u]');\" />
-                <input type='button' value='s' style='text-decoration:underline;width:25px;' onclick=\"addText('body', '[s]', '[/s]');\" />
-                <input type='button' value='http' name='url' style='width:30px;' onclick=\"tag_url();\" />
-                <input type='button' value='mail' style='width:35px;' onclick=\"addText('body', '[mail]', '[/mail]');\" />
-                <input type='button' value='img' style='width:30px;' onclick=\"tag_image();\" />
-                <input type='button' value='left' style='width:45px;' onclick=\"addText('body', '[left]', '[/left]');\" />
-                <input type='button' value='center' style='width:45px;' onclick=\"addText('body', '[center]', '[/center]');\" />
-                <input type='button' value='right' style='width:45px;' onclick=\"addText('body', '[right]', '[/right]');\" />
-                <input type='button' value='list' style='width:40px;' onclick=\"tag_list();\" />
-                <input type='button' value='code' style='width:40px;' onclick=\"addText('body', '[code]', '[/code]');\" />
-                <input type='button' value='quote' style='width:45px;' onclick=\"addText('body', '[quote]', '[/quote]');\" />
-              </div>
-              <div align='center'>
-                <select name='ffont' style='font-size:1em;height:2em;line-height:100%' onchange=\"alterfont(this.options[this.selectedIndex].value, 'font');\">
-                       <option value='0'>Font</option>
-                       <option value='Arial' style='font-family: Arial;'>Arial</option>
-                       <option value='Times' style='font-family: Times;'>Times</option>
-                       <option value='Courier' style='font-family: Courier;'>Courier</option>
-                       <option value='Impact' style='font-family: Impact;'>Impact</option>
-                       <option value='Geneva' style='font-family: Geneva;'>Geneva</option>
-                       <option value='Optima' style='font-family: Optima;'>Optima</option>
-                </select>
+    $safe_name = preg_replace('/[^A-Za-z0-9_-]/', '', (string) $name);
+    if ($safe_name === '')
+        $safe_name = 'body';
+    $body = htmlsafechars($body);
+    $emot_dir = htmlsafechars($TBDEV['pic_base_url'] . 'smilies/');
+    $editor_id = 'editor-' . $safe_name;
 
-                <select name='fsize' style='font-size:1em;height:2em;line-height:100%' onchange=\"alterfont(this.options[this.selectedIndex].value, 'size');\">
-                       <option value='0'>Size</option>
-                       <option style='font-size:1em;line-height:100%' value='1'>Small</option>
-                       <option style='font-size:2em;line-height:100%' value='2'>Large</option>
-                       <option style='font-size:3em;line-height:100%' value='3'>Largest</option>
-                       <option style='font-size:4em;line-height:100%' value='4'>Largest</option>
-                </select>
+    $buttons = array(
+        array('B', '[b]', '[/b]', 'font-weight:700'),
+        array('I', '[i]', '[/i]', 'font-style:italic'),
+        array('U', '[u]', '[/u]', 'text-decoration:underline'),
+        array('URL', '', '', ''),
+        array('IMG', '', '', ''),
+        array('Quote', '[quote]', '[/quote]', ''),
+        array('Code', '[code]', '[/code]', ''),
+    );
 
-                <select name='fcolor' style='font-size:1em;height:2em;line-height:100%' onchange=\"alterfont(this.options[this.selectedIndex].value, 'color');\">
-                       <option value='0'>Color</option>
-                       <option value='blue' style='color: blue;'>Blue</option>
-                       <option value='red' style='color: red;'>Red</option>
-                       <option value='purple' style='color: purple;'>Purple</option>
-                       <option value='orange' style='color: orange;'>Orange</option>
-                       <option value='yellow' style='color: yellow;'>Yellow</option>
-                       <option value='gray' style='color: gray;'>Gray</option>
-                       <option value='green' style='color: green;'>Green</option>
-                </select>
-             </div>
->
-             <div align='center'>
-                <img style='vertical-align:bottom;' src='{$emot_dir}smile1.gif' alt='smiley' onclick=\"insertText('body', ' :-)');\" />
-                <img style='vertical-align:bottom;' src='{$emot_dir}wink.gif' alt='smiley' onclick=\"insertText('body', ' :wink:');\" />
-                <img style='vertical-align:bottom;' src='{$emot_dir}noexpression.gif' alt='smiley' onclick=\"insertText('body', ' :-|');\" />
-                <img style='vertical-align:bottom;' src='{$emot_dir}sad.gif' alt='smiley' onclick=\"insertText('body', ' :-(');\" />
-                <img style='vertical-align:bottom;' src='{$emot_dir}ohmy.gif' alt='smiley' onclick=\"insertText('body', ' :-O');\" />
-                <img style='vertical-align:bottom;' src='{$emot_dir}tongue.gif' alt='smiley' onclick=\"insertText('body', ' :-P');\" />
-                <img style='vertical-align:bottom;' src='{$emot_dir}cool2.gif' alt='smiley' onclick=\"insertText('body', ' :cool:');\" />
-                <img style='vertical-align:bottom;' src='{$emot_dir}grin.gif' alt='smiley' onclick=\"insertText('body', ' :-D');\" />
-                <img style='vertical-align:bottom;' src='{$emot_dir}angry.gif' alt='smiley' onclick=\"insertText('body', ' :angry:');\" />
-                <img style='vertical-align:bottom;' src='{$emot_dir}wub.gif' alt='smiley' onclick=\"insertText('body', ' :wub:');\" />
-                &nbsp;<span class='btn'><a href='javascript:more_emoticons();'>More Smilies</a></span>
-             </div>";
-/*
-    if( $submit != '' )
-    {
-      $htmlout .= "
-          <tr>
-             <td align='center'>
-                <input type='submit' name='postquickreply' value='{$submit}' class='' />
-             </td>
-          </tr>";
+    $htmlout = "<div class='bbcode-editor' data-editor='{$editor_id}'>";
+    $htmlout .= "<div class='editor-toolbar' role='toolbar' aria-label='Formatting tools'>";
+    foreach ($buttons as $button) {
+        $label = htmlsafechars($button[0]);
+        $style = $button[3] !== '' ? " style='{$button[3]}'" : '';
+        if ($button[0] === 'URL')
+            $onclick = 'tag_url();';
+        elseif ($button[0] === 'IMG')
+            $onclick = 'tag_image();';
+        else
+            $onclick = "addText('{$safe_name}', '{$button[1]}', '{$button[2]}');";
+        $htmlout .= "<button type='button' class='editor-button'{$style} onclick=\"{$onclick}\">{$label}</button>";
     }
-
-    $htmlout .="
-    </table>";
-*/
+    $htmlout .= "<button type='button' class='editor-button' onclick=\"tag_list();\">List</button>";
+    $htmlout .= "</div>";
+    $htmlout .= "<textarea id='{$editor_id}' name='{$safe_name}' rows='12' class='editor-textarea'>{$body}</textarea>";
+    $htmlout .= "<p class='field-help'>Use [img]https://...[/img] for an external image. Only HTTP(S) image URLs are rendered; HTML is never accepted.</p>";
+    $htmlout .= "<div class='editor-smilies' aria-label='Emoticons'>";
+    $smilies = array(
+        array('smile1.gif', ':-)'), array('wink.gif', ':wink:'), array('noexpression.gif', ':-|'),
+        array('sad.gif', ':-('), array('ohmy.gif', ':-O'), array('tongue.gif', ':-P'),
+        array('cool2.gif', ':cool:'), array('grin.gif', ':-D'), array('angry.gif', ':angry:'),
+        array('wub.gif', ':wub:'),
+    );
+    foreach ($smilies as $smiley) {
+        $src = $emot_dir . htmlsafechars($smiley[0]);
+        $code = htmlsafechars($smiley[1]);
+        $onclick = "insertText('{$safe_name}', ' {$code}');";
+        $htmlout .= "<button type='button' class='smiley-button' onclick=\"{$onclick}\"><img src='{$src}' alt='{$code}' loading='lazy' /></button>";
+    }
+    $htmlout .= "<button type='button' class='editor-button editor-more' onclick=\"more_emoticons();\">More emoticons</button>";
+    $htmlout .= "</div></div>";
     return $htmlout;
 }
 

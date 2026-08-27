@@ -19,6 +19,8 @@ chmod 600 .env.lab
 
 Preencha os valores do `.env.lab` fora do repositório. Gere valores aleatórios para a chave da aplicação e para as credenciais do banco; nunca reutilize credenciais do VPS produtivo. Confirme que `TBDEV_BASE_URL` aponta para `http://127.0.0.1:18180`, que `TBDEV_TORRENT_DIR` aponta para `/var/lib/tbdev/torrents` e que `TBDEV_CACHE_DIR` aponta para `/var/lib/tbdev/runtime/cache`.
 
+O cadastro exige transporte de e-mail quando há usuários prévios. Como o laboratório não possui SMTP, você pode habilitar temporariamente a confirmação automática somente nele, adicionando `TBDEV_SIGNUP_CONFIRM_AUTO=1` ao `.env.lab` e recriando apenas o serviço web. Essa variável não deve ser usada em produção; o padrão é `0`.
+
 ## Validação antes de iniciar
 
 ```sh
@@ -62,6 +64,16 @@ docker compose --env-file .env.lab -f compose.lab.yml exec -T tbdev-db \
 
 A migração é aditiva: mantém `passhash` e `editsecret` legados, cria `password_hash` e `recovery_expires`, e não deve ser aplicada contra a base produtiva sem backup verificado, dry-run contra cópia e autorização explícita.
 
+Para disponibilizar categorias legais de teste no laboratório, aplique o fixture idempotente depois do schema:
+
+```sh
+docker compose --env-file .env.lab -f compose.lab.yml exec -T tbdev-db \
+  sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE"' \
+  < docs/tbdev-lab-seed.sql
+```
+
+O arquivo usa nomes `cat_*.gif` compatíveis com o gerenciador administrativo e não é executado automaticamente em produção.
+
 ## Smoke tests mínimos
 
 ```sh
@@ -77,7 +89,7 @@ docker compose --env-file .env.lab -f compose.lab.yml ps
 docker compose --env-file .env.lab -f compose.lab.yml logs --tail=100 tbdev-web
 ```
 
-Depois valide manualmente, ainda somente no laboratório, o cadastro com senha moderna, login, recuperação por link expirável, edição de perfil com senha atual, upload de um `.torrent` autorizado e download com passkey. Verifique também que um POST sem CSRF retorna erro, que um destino externo não é aceito em `returnto` e que o diretório do volume contém os arquivos runtime sem alterações no source da imagem.
+Depois valide manualmente, ainda somente no laboratório, o cadastro com senha moderna, login, recuperação por link expirável, edição de perfil com senha atual, criação de usuário pelo admin, upload de um `.torrent` autorizado e download com passkey. Verifique também que um POST sem CSRF retorna erro, que um destino externo não é aceito em `returnto` e que o diretório do volume contém os arquivos runtime sem alterações no source da imagem.
 
 O contrato do tracker deve ser testado com fixtures controladas para `started`, `completed`, `stopped`, peer list e scrape. Não execute payloads de exploração, scans agressivos ou testes contra o VPS de produção.
 

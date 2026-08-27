@@ -90,6 +90,19 @@ function format_quotes($s)
 	return $s;
 }
 
+function bbcode_image_url($value) {
+  $value = html_entity_decode((string) $value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+  if (!filter_var($value, FILTER_VALIDATE_URL))
+    return '';
+  $parts = parse_url($value);
+  if (!$parts || empty($parts['host']) || empty($parts['scheme']) || !in_array(strtolower($parts['scheme']), array('http', 'https'), true))
+    return '';
+  $path = isset($parts['path']) ? $parts['path'] : '';
+  if (!preg_match('/\.(?:jpe?g|png|gif|webp)\z/i', $path))
+    return '';
+  return htmlsafechars($value);
+}
+
 function format_comment($text, $strip_html = true)
 {
 	global $smilies, $TBDEV;
@@ -160,11 +173,16 @@ function format_comment($text, $strip_html = true)
 	$s = preg_replace( "#\(tm\)#i", "&#153;", $s );
 	$s = preg_replace( "#\(r\)#i", "&reg;" , $s );
 	
-	// [img]http://www/image.gif[/img]
-	$s = preg_replace("/\[img\](http:\/\/[^\s'\"<>]+(\.(jpg|gif|png)))\[\/img\]/i", "<img border=\"0\" src=\"\\1\" alt='' />", $s);
+  // Render only explicitly supported raster image URLs; never accept raw HTML.
+  $s = preg_replace_callback('/\[img\]([^\s\'\"<>]+)\[\/img\]/i', function ($matches) {
+    $url = bbcode_image_url($matches[1]);
+    return $url === '' ? htmlsafechars($matches[0]) : "<img class='description-image' src='{$url}' alt='External image' loading='lazy' referrerpolicy='no-referrer' />";
+  }, $s);
 
-	// [img=http://www/image.gif]
-	$s = preg_replace("/\[img=(http:\/\/[^\s'\"<>]+(\.(gif|jpg|png)))\]/i", "<img border=\"0\" src=\"\\1\" alt='' />", $s);
+  $s = preg_replace_callback('/\[img=([^\s\'\"<>]+)\]/i', function ($matches) {
+    $url = bbcode_image_url($matches[1]);
+    return $url === '' ? htmlsafechars($matches[0]) : "<img class='description-image' src='{$url}' alt='External image' loading='lazy' referrerpolicy='no-referrer' />";
+  }, $s);
 
 	// [color=blue]Text[/color]
 	$s = preg_replace("#\[color=([^\];\d\s]+)\](.+?)\[/color\]#is",
