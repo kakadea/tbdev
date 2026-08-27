@@ -25,8 +25,11 @@ loggedinorreturn();
 
 	$lang = load_language('global');
 
-	if ( get_user_class() < UC_ADMINISTRATOR )
-		header( "Location: {$TBDEV['baseurl']}/index.php" );
+		if (get_user_class() < UC_ADMINISTRATOR)
+		{
+			header("Location: {$TBDEV['baseurl']}/index.php");
+			exit;
+		}
 
 	$input = array_merge($_GET, $_POST);
 	$input['mode'] = isset( $input['mode'] ) ? $input['mode'] : '';
@@ -742,32 +745,27 @@ function get_month_dropdown($i=0)
 /////////////////////////////
 //	cache rep function
 /////////////////////////////
-function rep_cache()
-	{
-		
-		$query = @mysql_query( "SELECT * FROM reputationlevel" );
-		
-		if( ! mysql_num_rows($query) )
-			stderr( 'CACHE', 'No items to cache' );
-		
-		$rep_cache_file = "cache/rep_cache.php";
-		$rep_out = "<"."?php\n\n\$reputations = array(\n";
-		
-		while( $row = mysql_fetch_assoc($query) )
+		function rep_cache()
 		{
-			$rep_out .= "\t{$row['minimumreputation']} => '{$row['level']}',\n";
+			global $TBDEV;
+
+			$query = @mysql_query("SELECT minimumreputation, level FROM reputationlevel") or sqlerr(__FILE__, __LINE__);
+			if (!mysql_num_rows($query))
+				stderr('CACHE', 'No items to cache');
+
+			$reputations = array();
+			while ($row = mysql_fetch_assoc($query))
+				$reputations[(int) $row['minimumreputation']] = (string) $row['level'];
+
+			$rep_cache_file = rtrim($TBDEV['cache_dir'], '/\\') . '/rep_cache.php';
+			$rep_out = "<?php\n\n\$reputations = " . var_export($reputations, true) . ";\n\n?>\n";
+			$temporary = $rep_cache_file . '.tmp.' . bin2hex(random_bytes(8));
+			if (@file_put_contents($temporary, $rep_out, LOCK_EX) === false || !@rename($temporary, $rep_cache_file))
+			{
+				@unlink($temporary);
+				stderr('CACHE', 'Unable to write reputation cache');
+			}
+			@chmod($rep_cache_file, 0660);
+			clearstatcache(true, $rep_cache_file);
 		}
-		
-		$rep_out .= "\n);\n\n?".">";
-		clearstatcache( $rep_cache_file );
-		
-		if( is_file( $rep_cache_file ) && is_writable( $rep_cache_file ) )
-		{
-			$filenum = fopen ( $rep_cache_file, 'w' );
-			ftruncate( $filenum, 0 );
-			fwrite( $filenum, $rep_out );
-			fclose( $filenum );
-		}
-		
-	}
 ?>
