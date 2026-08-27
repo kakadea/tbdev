@@ -19,22 +19,36 @@
 require_once 'include/bittorrent.php';
 require_once "include/password_functions.php";
 
-    if (!mkglobal('username:password'))
-      die('wibble');
-
-    if( $TBDEV['captcha'] )
+    security_session_start();
+    if (!security_csrf_validate(isset($_POST['csrf_token']) ? $_POST['csrf_token'] : '', 'login'))
     {
-      session_start();
-      if(!isset($_POST['captcha']) || empty($_POST['captcha']) || $_SESSION['captcha_id'] != strtoupper($_POST['captcha']))
-      {
-            header('Location: login.php');
-            exit();
-      }
+      http_response_code(400);
+      exit('Invalid login request.');
     }
-    
+
+    if (!mkglobal('username:password'))
+      die('Invalid login request.');
+
+    $login_identity = security_client_identity() . '|' . strtolower(trim((string) $username));
+    if (!security_rate_limit('login', $login_identity, 8, 900))
+    {
+      http_response_code(429);
+      exit('Too many login attempts. Please try again later.');
+    }
+
+    if ($TBDEV['captcha'])
+    {
+      if (!isset($_POST['captcha']) || empty($_POST['captcha']) || empty($_SESSION['captcha_id']) || $_SESSION['captcha_id'] !== strtoupper((string) $_POST['captcha']))
+      {
+        header('Location: login.php');
+        exit();
+      }
+      unset($_SESSION['captcha_id'], $_SESSION['captcha_time']);
+    }
+
     dbconn();
-    
-    $lang = array_merge( load_language('global'), load_language('takelogin') );
+
+    $lang = array_merge(load_language('global'), load_language('takelogin'));
 
 
     $res = mysql_query("SELECT id, passhash, password_hash, secret, enabled FROM users WHERE username = " . sqlesc($username) . " AND status = 'confirmed'");
@@ -43,35 +57,42 @@ require_once "include/password_functions.php";
     if (!$row)
       stderr($lang['tlogin_failed'], 'Username or password incorrect');
     
-    $legacy_valid = hash_equals(
-      (string) $row['passhash'],
-      make_passhash($row['secret'], md5($password))
-    );
-    $modern_valid = !empty($row['password_hash'])
-      && password_verify($password, $row['password_hash']);
-
-    if (!$modern_valid && !$legacy_valid)
-      stderr($lang['tlogin_failed'], 'Username or password incorrect');
-
-    if (empty($row['password_hash']))
+    if (!empty($row['password_hash']))
     {
+      if (!password_verify($password, $row['password_hash']))
+        stderr($lang['tlogin_failed'], 'Username or password incorrect');
+
+      if (password_needs_rehash($row['password_hash'], PASSWORD_DEFAULT))
+      {
+        $new_hash = password_hash($password, PASSWORD_DEFAULT);
+        if ($new_hash !== false)
+          mysql_query("UPDATE users SET password_hash = " . sqlesc($new_hash) . " WHERE id = " . (int) $row['id']);
+      }
+    }
+    else
+    {
+      $legacy_valid = hash_equals(
+        (string) $row['passhash'],
+        make_passhash($row['secret'], md5($password))
+      );
+      if (!$legacy_valid)
+        stderr($lang['tlogin_failed'], 'Username or password incorrect');
+
       $new_hash = password_hash($password, PASSWORD_DEFAULT);
       if ($new_hash !== false)
-      {
         mysql_query("UPDATE users SET password_hash = " . sqlesc($new_hash) . " WHERE id = " . (int) $row['id']);
-      }
     }
 
     if ($row['enabled'] == 'no')
       stderr($lang['tlogin_failed'], $lang['tlogin_disabled']);
 
+    security_session_regenerate();
     logincookie($row['id'], $row['passhash']);
 
-//$returnto = str_replace('&amp;', '&', htmlsafechars($_POST['returnto']));
-//$returnto = $_POST['returnto'];
-    //if (!empty($returnto))
-      //header("Location: ".$returnto);
-    //else
-      header("Location: {$TBDEV['baseurl']}/my.php");
+    $returnto = security_validate_return_to(
+      isset($_POST['returnto']) ? $_POST['returnto'] : '',
+      $TBDEV['baseurl'] . '/my.php'
+    );
+    header('Location: ' . $returnto);
 
 ?>

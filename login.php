@@ -18,29 +18,25 @@
 */
 require_once "include/bittorrent.php" ;
 
-    ini_set('session.use_trans_sid', '0');
-
-    $lang = array_merge( load_language('global'), load_language('login') );
+    security_session_start();
+    $csrf = security_csrf_token('login');
+    $lang = array_merge(load_language('global'), load_language('login'));
     
     $HTMLOUT = '';
     $js = '';
 
-    if( $TBDEV['captcha'] )
+    if ($TBDEV['captcha'])
     {
-    // Begin the session
-    session_start();
-    if (isset($_SESSION['captcha_time']))
-    (TIME_NOW - $_SESSION['captcha_time'] < 10) ? exit("{$lang['login_spam']}") : NULL;
-    
-    $js = "<script type='text/javascript' src='captcha/captcha.js'></script>";
+      if (isset($_SESSION['captcha_time']) && TIME_NOW - (int) $_SESSION['captcha_time'] < 10)
+        exit($lang['login_spam']);
 
+      $js = "<script type='text/javascript' src='captcha/captcha.js'></script>";
     }
     
-    
-    unset($returnto);
-    if (!empty($_GET["returnto"])) {
-      $returnto = $_GET["returnto"];
-      if (!isset($_GET["nowarn"])) 
+    $returnto = null;
+    if (!empty($_GET['returnto'])) {
+      $returnto = security_validate_return_to($_GET['returnto'], $TBDEV['baseurl'] . '/my.php');
+      if (!isset($_GET['nowarn']))
       {
         $HTMLOUT .= "<div class='info'>{$lang['login_not_logged_in']}</div><br />\n";
         $HTMLOUT .= "<div class='error'>{$lang['login_error']}</div>";
@@ -50,6 +46,7 @@ require_once "include/bittorrent.php" ;
 
     $HTMLOUT .= "
                 <form method='post' action='takelogin.php'>
+                     <input type='hidden' name='csrf_token' value='" . htmlsafechars($csrf) . "' />
                      <div class='cblock'>
                          <div class='cblock-header'>Login</div>
                          <div class='cblock-lb'>Note: You need cookies enabled to log in.</div>
@@ -57,11 +54,11 @@ require_once "include/bittorrent.php" ;
                              <table border='0' cellpadding='5'>
                                    <tr>
                                       <td class='rowhead'>{$lang['login_username']}</td>
-                                      <td align='left'><input type='text' size='40' name='username' /></td>
+                                      <td align='left'><input type='text' size='40' name='username' autocomplete='username' required /></td>
                                    </tr>
                                    <tr>
                                       <td class='rowhead'>{$lang['login_password']}</td>
-                                      <td align='left'><input type='password' size='40' name='password' /></td>
+                                      <td align='left'><input type='password' size='40' name='password' autocomplete='current-password' required /></td>
                                    </tr>
                                <!--<tr><td class='rowhead'>{$lang['login_duration']}</td><td align='left'><input type='checkbox' name='logout' value='yes' checked='checked' />{$lang['login_15mins']}</td></tr>-->";
 
@@ -79,7 +76,7 @@ require_once "include/bittorrent.php" ;
                                    </tr>
                                    <tr>
                                       <td class='rowhead'>{$lang['login_pin']}</td>
-                                      <td><input type='text' maxlength='6' name='captcha' id='captcha' onblur='check(); return false;'/></td>
+                                      <td><input type='text' maxlength='6' name='captcha' id='captcha' autocomplete='off' required /></td>
                                    </tr>";
     }
 
